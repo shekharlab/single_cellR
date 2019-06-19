@@ -8,7 +8,6 @@
 #source("https://bioconductor.org/biocLite.R")
 #biocLite(c("preprocessCore","Biostrings","GraphAlignment","MAST","tweeDEseq"))
 # sourcefiles
-dirpath = "~/Dropbox/CompRepos/sc_R_sparse/Oct2017/"
 source(paste0(dirpath, "UpdateObject.R"))
 #source("./UpdateObject.R")
 
