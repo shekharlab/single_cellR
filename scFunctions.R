@@ -1,5 +1,4 @@
-source("~/Dropbox/CompRepos/sc_R_sparse/Oct2017/PermutationPA.R")
-#source("./PermutationPA.R")
+source(paste0(dirpath,"PermutationPA.R"))
 
 #nmf.options(grid.patch=TRUE)
 nogrid=theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
