@@ -7,7 +7,7 @@ fftRtsne <- function(X,
                      stop_lying_iter=250,
                      exaggeration_factor=12.0, no_momentum_during_exag=FALSE,
                      start_late_exag_iter=-1.0,late_exag_coeff=1.0,
-                     n_trees=50, search_k = -1,rand_seed=-1, path_to_dir = "~/Dropbox/CompResources",...) {
+                     n_trees=50, search_k = -1,rand_seed=-1, path_to_dir = dirpath,...) {
   
   is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
   
@@ -59,7 +59,7 @@ fftRtsne <- function(X,
   close(f) 
   
   
-  flag= system(paste0(path_to_dir,'/fast_tsne'));
+  flag= system(paste0(path_to_dir,'fast_tsne'));
   if (flag != 0) {
     stop('tsne call failed');
   }
