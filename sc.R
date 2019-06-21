@@ -750,7 +750,7 @@ run_tsne = function(object,cells.use=NULL,pcs.use=1:10,k.seed=1,do.fast=FALSE,ad
       set.seed(k.seed); data.tsne=Rtsne(as.matrix(data.use),pca=FALSE,verbose=TRUE,...)
       data.tsne=data.frame(data.tsne$Y)
     } else if (fast.method == "FFT"){
-      source(paste0(dirpath,"FFT_tsne.R"))
+      source(paste0(dirpath,fast_tsne_script), chdir = T)
       dir.create("temp")
       data.tsne <- fftRtsne(as.matrix(data.use), ...);
     } else {
