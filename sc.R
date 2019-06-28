@@ -303,12 +303,13 @@ NormalizeData <- function(
     normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
     rm(data)
     if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
-    non_zero <- which(normalized.data > 0)
-    normalized.data[non_zero] <- log(normalized.data[non_zero] + pseudocount.use)
-    if (pseudocount.use != 1){
-      actual_zero <- which(normalized.data == 0)
-      normalized.data[actual_zero] <- log(normalized.data[actual_zero] + pseudocount.use)
-    }
+    normalized.data <- log(normalized.data + pseudocount.use)
+    #non_zero <- which(normalized.data > 0)
+    #normalized.data[non_zero] <- log(normalized.data[non_zero] + pseudocount.use)
+    #if (pseudocount.use != 1){
+    #  actual_zero <- which(normalized.data == 0)
+    #  normalized.data[actual_zero] <- log(normalized.data[actual_zero] + pseudocount.use)
+    #}
   }
   # if (normalization.method == "genesCLR") {
   #   raw.data <- GetAssayData(
