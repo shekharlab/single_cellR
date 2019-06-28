@@ -18,7 +18,7 @@ mixed_glm = function(x, y, k=2, ...){
 
 select_points = function(x, y, n, dir='both', loess=FALSE, nbins=25, bin_type='equal_width', exclude=c(0,0)){
     require(Hmisc)
-    source('~/code/single_cell/downsample.r')
+    source('downsample.r')
 
     # fix inputs
     if(!is.list(exclude)){exclude=list(exclude)}
@@ -62,3 +62,4 @@ select_points = function(x, y, n, dir='both', loess=FALSE, nbins=25, bin_type='e
     
     return(i[j])
 }
+
