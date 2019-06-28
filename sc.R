@@ -25,6 +25,7 @@ require(ggplot2)
 require(reshape)
 require(gplots)
 require(stringr)
+require(wordspace)
 #require(NMF)
 #require(mixtools)
 #require(lars)
@@ -299,7 +300,7 @@ NormalizeData <- function(
       num.trans = Matrix::colSums(data)
     }
     
-    normalized.data <-  scale.factor * t(t(data) / num.trans)
+    normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
     rm(data)
     if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
     normalized.data <- log(normalized.data + pseudocount.use)
