@@ -87,7 +87,7 @@ fftRtsne <- function(X,
          get_costs = FALSE, df = 1.0) {
   
   version_number <- '1.1.0'
-
+  print(FAST_TSNE_SCRIPT_DIR)
 	if (is.null(fast_tsne_path)) {
 		if (.Platform$OS.type == "unix") {
 			fast_tsne_path <- file.path(FAST_TSNE_SCRIPT_DIR, "bin", "fast_tsne")
