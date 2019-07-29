@@ -390,7 +390,7 @@ setMethod("buildClusterTree","scR",
               print(paste0("Using ", dist.fun, " distance function. Supply argument dist.fun if you want a different function"))
               if (dist.fun == "correlation"){
                 data.dist = as.dist(1 - cor(data.avg[genes.use,]))
-              } else if {
+              } else if (dist.fun == "cosine") {
                 data.dist = as.dist(1 - cosine(data.avg[genes.use,]))
                 } else {
                 data.dist=dist(t(data.avg[genes.use,]), method=dist.fun)
