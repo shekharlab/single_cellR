@@ -336,6 +336,264 @@ SingleFeaturePlot <- function(
   return(p)
 }
 
+#' FeaturePlot for two features
+BiFeaturePlot <- function(
+  object,
+  features.plot,
+  quantile.cutoff=NA,
+  dim.1 = 1,
+  dim.2 = 2,
+  cells.use = NULL,
+  breaks = NULL,
+  pt.size = 1,
+  cols.use = c("red", "blue"),
+  pch.use = 16,
+  overlay = FALSE,
+  do.hover = FALSE,
+  data.hover = 'ident',
+  do.identify = FALSE,
+  reduction.use = "tsne",
+  use.imputed = FALSE,
+  nCol = NULL,
+  no.axes = FALSE,
+  no.legend = TRUE,
+  dark.theme = FALSE,
+  do.return = FALSE,
+  use.raw = FALSE,
+  use.count = FALSE
+) {
+  require(colorspace)
+  if (!is.list(features.plot)){
+    stop("Error: features.plot must be a list with each element being a character vector of length 2")
+  }
+  all.features = unique(unlist(features.plot)) 
+  cells.use <- set.ifnull(cells.use, colnames(object@data))
+  if (is.null(nCol)) {
+    nCol <- 2
+    if (length(features.plot) == 1) {
+      nCol <- 1
+    }
+    if (length(features.plot) > 6) {
+      nCol <- 3
+    }
+    if (length(features.plot) > 9) {
+      nCol <- 4
+    }
+  }
+  
+  num.row <- floor(x = length(features.plot) / nCol - 1e-5) + 1
+  if (overlay | do.hover) {
+    num.row <- 1
+    nCol <- 1
+  }
+  par(mfrow = c(num.row, nCol))
+  dim.code <- GetDimCode(reduction.use)
+  dim.codes <- paste0(dim.code, c(dim.1, dim.2))
+  print(1)
+  if (reduction.use == "tsne") dim.codes = c("tsne_1","tsne_2")
+  data.plot <- as.data.frame(GetCellEmbeddings(
+    object = object,
+    reduction.use = reduction.use,
+    dims.use = c(dim.1, dim.2),
+    cells.use = cells.use
+  ))
+  
+  if (reduction.use == "tsne") colnames(data.plot) = c("tsne_1","tsne_2")
+  data.plot$x <- data.plot[, dim.codes[1]]
+  data.plot$y <- data.plot[, dim.codes[2]]
+  data.plot$pt.size <- pt.size
+  #names(x = data.plot) <- c('x', 'y')
+  
+  data.use=t(fetch.data(
+    object,
+    all.features,
+    cells.use = cells.use, 
+    use.raw=use.raw, 
+    use.count=use.count))
+  
+  # Normalize data
+  print("Normalizing each feature from min to max")
+  for (f in all.features){
+    n = length(cells.use)
+    if (is.na(quantile.cutoff) | quantile.cutoff > 1){
+      cutoff = quantile(data.use[f,], max(0.99, 1-100/n))
+    } else {
+      cutoff = quantile(data.use[f,], quantile.cutoff)
+    }
+    data.use[f,] = data.use[f,]/cutoff
+  }
+ 
+  if (overlay) {
+    stop("Overlay is not yet implemented")
+    #   Wrap as a list for MutiPlotList
+    # pList <- list(
+    #   BlendPlot(
+    #     data.use = data.use,
+    #     features.plot = features.plot,
+    #     data.plot = data.plot,
+    #     pt.size = pt.size,
+    #     pch.use = pch.use,
+    #     cols.use = cols.use,
+    #     dim.codes = dim.codes,
+    #     min.cutoff = min.cutoff,
+    #     max.cutoff = max.cutoff,
+    #     no.axes = no.axes,
+    #     no.legend = no.legend,
+    #     dark.theme = dark.theme
+    #   )
+    # )
+  } else {
+    #   Use mapply instead of lapply for multiple iterative variables.
+    pList <- mapply(
+      FUN = DoubleFeaturePlot,
+      features = features.plot,
+      MoreArgs = list( # Arguments that are not being repeated
+        data.use = data.use,
+        data.plot = data.plot,
+        breaks = breaks,
+        pt.size = pt.size,
+        pch.use = pch.use,
+        cols.use = cols.use,
+        dim.codes = dim.codes,
+        no.axes = no.axes,
+        no.legend = no.legend,
+        dark.theme = dark.theme
+      ),
+      SIMPLIFY = FALSE # Get list, not matrix
+    )
+  }
+  if (do.hover) {
+    if (length(x = pList) != 1) {
+      stop("'do.hover' only works on a single feature or an overlayed FeaturePlot") # Instead just skipt this step
+    }
+    if (is.null(x = data.hover)) {
+      features.info <- NULL
+    } else {
+      features.info <- fetch.data(object = object, vars.all = data.hover)
+    }
+    #   Use pList[[1]] to properly extract the ggplot out of the plot list
+    return(HoverLocator(
+      plot = pList[[1]],
+      data.plot = data.plot,
+      features.info = features.info,
+      dark.theme = dark.theme,
+      title = features.plot
+    ))
+    # invisible(readline(prompt = 'Press <Enter> to continue\n'))
+  } else if (do.identify) {
+    require(SDMTools)
+    if (length(x = pList) != 1) {
+      stop("'do.identify' only works on a single feature or an overlayed FeaturePlot")
+    }
+    #   Use pList[[1]] to properly extract the ggplot out of the plot list
+    return(FeatureLocator(
+      plot = pList[[1]],
+      data.plot = data.plot,
+      dark.theme = dark.theme
+    ))
+  } else {
+    print(x = cowplot::plot_grid(plotlist = pList, ncol = nCol))
+  }
+  ResetPar()
+  if (do.return){
+    return(pList)
+  }
+}
+
+#' Single Feature plot for two features
+
+DoubleFeaturePlot = function(
+  data.use,
+  features,
+  data.plot,
+  breaks,
+  pt.size,
+  pch.use,
+  cols.use,
+  dim.codes,
+  no.axes,
+  no.legend,
+  dark.theme
+) {
+  if (length(features) != 2){
+    stop("Error: DoubleFeaturePlot works only for two features. Please supply a list where each element is a vector of two features")
+  }
+  data.gene <- na.omit(object = data.frame(data.use[features, ]))
+  #   Check for quantiles
+  #   Mask any values below the minimum and above the maximum values
+
+  #   Stuff for break points
+  if (is.null(breaks)){
+    brewer.gran = 2
+  } else {
+    brewer.gran = breaks
+  }
+  if (!(brewer.gran == round(brewer.gran)) | (brewer.gran < 0)) {
+    stop("breaks must be a positive integer")
+  }
+  print(paste0("using ", brewer.gran, " breaks" ))
+  
+  #   Cut points
+  l=1
+  for (f in features){
+    if (all(data.gene == 0)) {
+      data.cut <- 0
+    } else {
+      data.cut <- as.numeric(x = as.factor(x = cut(
+        x = as.numeric(x = data.gene[f,]),
+        breaks = brewer.gran
+      )))
+    }
+    colx = cols.use[l]
+    colramp = colorRampPalette(c("white",colx))(breaks)
+    
+    data.plot[,paste0("col",l)] <- sapply(data.cut, function(x) colramp[x] )
+    l=l+1
+  }
+  
+  data.plot[,features[1]] = as.numeric(data.gene[features[1],])
+  data.plot[,features[2]] = as.numeric(data.gene[features[2],])
+  
+  data.plot$col = sapply(1:nrow(data.plot), function(x){
+    x1 = as.numeric(col2rgb(data.plot[x,"col1"]))/255
+    x2 = as.numeric(col2rgb(data.plot[x,"col2"]))/255
+    m = as.numeric(colorspace::coords(mixcolor(0.5, RGB(x1[1],x1[2],x1[3]), RGB(x2[1],x2[2],x2[3]))))
+    return(rgb(m[1],m[2],m[3]))
+  })
+  
+  t1 = paste0(features[1], "(", cols.use[1], ")")
+  t2 = paste0(features[2], "(", cols.use[2], ")")
+  title.use = paste0(t1,", ", t2)
+
+    #   Start plotting
+  p <- ggplot(data = data.plot, mapping = aes(x = x, y = y))
+  
+  p <- p + geom_point(
+    size = pt.size,
+    shape = pch.use,
+    color = data.plot$col
+  ) + scale_color_identity()
+  if (no.axes) {
+    p <- p + labs(title = title.use, x ="", y="") + theme(
+      axis.line = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank()
+    )
+  } else {
+    p <- p + labs(title = title.use, x = dim.codes[1], y = dim.codes[2])
+  }
+  if (no.legend) {
+    p <- p + theme(legend.position = 'none')
+  }
+  if (dark.theme) {
+    p <- p + DarkTheme()
+  }
+  return(p)
+}
+
 #' Plot tSNE map
 #'
 #' Graphs the output of a tSNE analysis
