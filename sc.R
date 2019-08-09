@@ -304,6 +304,7 @@ NormalizeData <- function(
     rm(data)
     if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
     normalized.data <- log(normalized.data + pseudocount.use)
+    normalized.data <- Matrix(normalized.data, sparse=TRUE)
     #non_zero <- which(normalized.data > 0)
     #normalized.data[non_zero] <- log(normalized.data[non_zero] + pseudocount.use)
     #if (pseudocount.use != 1){
