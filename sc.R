@@ -4351,7 +4351,9 @@ NB.var.genes <- function(
   do.text=TRUE, 
   cut.quantile=0.99,
   rem.mt.rp = FALSE,
-  max.cor = 0.5) {
+  max.cor = 0.5,
+return.top.genes = FALSE,
+topn = 500) {
   
   require(MASS)
   print("Identifying variable genes based on UMI Counts. Warning - use this only for UMI based data")
@@ -4416,6 +4418,11 @@ NB.var.genes <- function(
     mean_NB = a_i / b_i; var_NB = a_i*(1+b_i) / (b_i^2)
     cv_NB = sqrt(var_NB)/mean_NB
     diffCV = log(cv_emp) - log(cv_NB)
+    
+    if (return.top.genes){
+      diffCV = sort(diffCV, decreasing=TRUE)
+      return(diffCV[1:min(length(diffCV),topn)])
+    }
     
     hist(diffCV,500, main="Select a delta-logCV cutoff for variable gene: ", xlab="delta-logCV", ylim = c(0,1500), xlim = c(0, quantile(diffCV,0.99)))
     
