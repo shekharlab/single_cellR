@@ -62,9 +62,13 @@ FeaturePlot <- function(
   dark.theme = FALSE,
   do.return = FALSE,
   use.raw = FALSE,
-  use.count = FALSE
+  use.count = FALSE,
+  max.cells = NA
 ) {
   cells.use <- set.ifnull(cells.use, colnames(object@data))
+  if (!is.na(max.cells)){
+    cells.use = sample(cells.use, max.cells)
+    }
   if (is.null(nCol)) {
     nCol <- 2
     if (length(features.plot) == 1) {
