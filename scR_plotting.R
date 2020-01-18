@@ -735,6 +735,7 @@ DimPlot <- function(
   no.legend = FALSE,
   no.axes = FALSE,
   dark.theme = FALSE,
+  max.cells = NA,
   ...
 ) {
   
@@ -762,7 +763,14 @@ DimPlot <- function(
   data.plot$x <- data.plot[, dim.codes[1]]
   data.plot$y <- data.plot[, dim.codes[2]]
   data.plot$pt.size <- pt.size
-  data.plot=data.plot[sample(rownames(data.plot)),]
+  
+  # Downsample if necessary
+  if (!is.na(max.cells)){
+    data.plot = data.plot[sample(rownames(data.plot),max.cells),]   
+  } else {
+      data.plot=data.plot[sample(rownames(data.plot)),]
+  }
+  
   p <- ggplot(data = data.plot, mapping = aes(x = x, y = y)) +
     geom_point(mapping = aes(colour = factor(x = ident)), size = pt.size)
   if (! is.null(pt.shape)) {
