@@ -1,9 +1,16 @@
-// [[Rcpp::depends(RcppArmadillo, RcppEigen)]]
-
 #include <RcppArmadillo.h>
 #include <RcppEigen.h>
+#include <progress.hpp>
+#include <cmath>
+#include <unordered_map>
+#include <fstream>
+#include <string>
 
 using namespace Rcpp;
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(RcppEigen)]]
+// [[Rcpp::depends(RcppProgress)]]
+
 
 // [[Rcpp::export]]
 SEXP armaMatMult(arma::mat A, arma::mat B){
@@ -44,18 +51,18 @@ NumericMatrix fastPdist2(NumericMatrix Ar, NumericMatrix Br) {
   return wrap(sqrt(C)); 
 }
 
-// LogNorm
-Eigen::SparseMatrix<double> LogNorm(Eigen::SparseMatrix<double> data, int scale_factor, bool display_progress);
-RcppExport SEXP _Seurat_LogNorm(SEXP dataSEXP, SEXP scale_factorSEXP, SEXP display_progressSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double> >::type data(dataSEXP);
-    Rcpp::traits::input_parameter< int >::type scale_factor(scale_factorSEXP);
-    Rcpp::traits::input_parameter< bool >::type display_progress(display_progressSEXP);
-    rcpp_result_gen = Rcpp::wrap(LogNorm(data, scale_factor, display_progress));
-    return rcpp_result_gen;
-END_RCPP
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> LogNorm(Eigen::SparseMatrix<double> data, int scale_factor, bool display_progress = true){
+  Progress p(data.outerSize(), display_progress);
+  Eigen::VectorXd colSums = data.transpose() * Eigen::VectorXd::Ones(data.rows());
+  for (int k=0; k < data.outerSize(); ++k){
+    p.increment();
+    for (Eigen::SparseMatrix<double>::InnerIterator it(data, k); it; ++it){
+      it.valueRef() = log1p(double(it.value()) / colSums[k] * scale_factor);
+    }
+  }
+  return data;
 }
+
 
 
