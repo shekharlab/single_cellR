@@ -63,7 +63,6 @@ library(shape)
 library(cowplot)
 #library(MASS)
 library(irlba)
-library(DAPAR)
 
 #library(rgl)
 #require(networkD3)
@@ -80,42 +79,42 @@ library(DAPAR)
 #' scR class object
 
 scR <- methods::setClass("scR", 
-                      slots = c(
-                        data = "ANY", 
-                        count.data="ANY", 
-                        regress.data="ANY",
-                        scale.data="ANY",
-                        var.genes="vector",
-                        is.expr="numeric",
-                        ident="vector",
-                        data.info="data.frame",
-                        project.name="character",
-                        dr = "list",
-                        de.list = "list",
-                        de.union = "data.frame",
-                        hvg.info = "data.frame",
-                        imputed = "ANY",
-                        cell.names = "vector",
-                        cluster.tree = "list",
-                        adjmat = "dgCMatrix",
-                        calc.params = "list",
-                        kmeans = "ANY",
-                        spatial = "ANY",
-                        misc = "ANY",
-                        clust.avg.exp = "ANY",
-                        clust.avg.perc = "ANY",
-                        ident.fxn = "function",
-                        version = "ANY",
-                        data.ngene="vector",
-                        pca.x="data.frame",
-                        pca.rot="data.frame",
-                        pca.var="numeric",
-                        pca.obj="list",
-                       tsne.rot="data.frame", 
-                       ica.rot="data.frame", 
-                       ica.x="data.frame",
-                       ica.obj="list"
-))
+                         slots = c(
+                           data = "ANY", 
+                           count.data="ANY", 
+                           regress.data="ANY",
+                           scale.data="ANY",
+                           var.genes="vector",
+                           is.expr="numeric",
+                           ident="vector",
+                           data.info="data.frame",
+                           project.name="character",
+                           dr = "list",
+                           de.list = "list",
+                           de.union = "data.frame",
+                           hvg.info = "data.frame",
+                           imputed = "ANY",
+                           cell.names = "vector",
+                           cluster.tree = "list",
+                           adjmat = "dgCMatrix",
+                           calc.params = "list",
+                           kmeans = "ANY",
+                           spatial = "ANY",
+                           misc = "ANY",
+                           clust.avg.exp = "ANY",
+                           clust.avg.perc = "ANY",
+                           ident.fxn = "function",
+                           version = "ANY",
+                           data.ngene="vector",
+                           pca.x="data.frame",
+                           pca.rot="data.frame",
+                           pca.var="numeric",
+                           pca.obj="list",
+                           tsne.rot="data.frame", 
+                           ica.rot="data.frame", 
+                           ica.x="data.frame",
+                           ica.obj="list"
+                         ))
 
 #' @include seurat.R
 NULL
@@ -214,18 +213,18 @@ setup <- function(
   if (!is.null(threshold.use) | !is.null(threshold.quantile)){
     if (!is.null(threshold.use)){
       if (verbose) print(paste0("Thresholding all normalized values to ", threshold.use))
-      #valsToChange = Matrix::which(object@data > threshold.use)
-      indToChange = DAPAR::nonzero(object@data)
-      valsToChange = object@data[indToChange]
-      valsToChange[valsToChange > threshold.use] = threshold.use
-      object@data[indToChange] = valsToChange
+  
+      M_t = as(object@data, "dgTMatrix")
+      M_t@x[M_t@x > threshold.use] = threshold.use
+      object@data = as(M_t, "dgCMatrix")
+      rm(M_t)
     } else {
-      indToChange = DAPAR::nonzero(object@data)
-      valsToChange = object@data[indToChange]
-      threshold.use = quantile(valsToChange, threshold.quantile)
+      M_t = as(object@data, "dgTMatrix")
+      threshold.use = quantile(M_t@x, threshold.quantile)
       if (verbose) print(paste0("Thresholding all normalized values to ", 100*threshold.quantile, " percentile of the expressed vals =", threshold.use))
-      valsToChange[valsToChange > threshold.use] = threshold.use
-      object@data[indToChange] = valsToChange
+      M_t@x[M_t@x > threshold.use] = threshold.use
+      object@data = as(M_t, "dgCMatrix")
+      rm(M_t)
     }
   }
   
@@ -371,7 +370,7 @@ custom.dist <- function(my.mat, my.function,...) {
 
 setGeneric("buildClusterTree", function(object, genes.use=NULL,regress.use=FALSE,pcs.use=NULL,do.plot=TRUE,do.reorder=FALSE,reorder.numeric=FALSE, stat.fxn=expMean, linkage.method="complete", dist.fun="complete", nboot.use=1000, do.bootstrap=FALSE, do.scale=FALSE) standardGeneric("buildClusterTree"))
 setMethod("buildClusterTree","scR",
-  function(object,genes.use=NULL,regress.use=FALSE,pcs.use=NULL,do.plot=TRUE,do.reorder=FALSE,reorder.numeric=FALSE, stat.fxn=expMean, linkage.method="complete", dist.fun="euclidean", nboot.use=1000, do.bootstrap=FALSE, do.scale=FALSE) {
+          function(object,genes.use=NULL,regress.use=FALSE,pcs.use=NULL,do.plot=TRUE,do.reorder=FALSE,reorder.numeric=FALSE, stat.fxn=expMean, linkage.method="complete", dist.fun="euclidean", nboot.use=1000, do.bootstrap=FALSE, do.scale=FALSE) {
             genes.use=set.ifnull(genes.use,object@var.genes)
             print(length(genes.use))
             print(regress.use)
@@ -398,7 +397,7 @@ setMethod("buildClusterTree","scR",
                 data.dist = as.dist(1 - cor(data.avg[genes.use,]))
               } else if (dist.fun == "cosine") {
                 data.dist = as.dist(1 - cosine(as.matrix(data.avg[genes.use,])))
-                } else {
+              } else {
                 data.dist=dist(t(data.avg[genes.use,]), method=dist.fun)
               }
             }
@@ -500,7 +499,7 @@ setMethod("plotNoiseModel","scR",
               data$bin=cut(code_humpAvg,20)
               data$avg=code_humpAvg
               rownames(idents)=rownames(data)
-             getAB(cn=cells.use, data=data,data2=idents,code2="humpAvg",hasBin=TRUE,doPlot=TRUE)
+              getAB(cn=cells.use, data=data,data2=idents,code2="humpAvg",hasBin=TRUE,doPlot=TRUE)
             } else {
               main = "Single Cell FNR curves"
               if (do.new) plot(1,1,pch=16,type="n",xlab="Average expression",ylab="P(detection) or 1-FNR",xlim=c(0,x.lim),ylim=c(0,1), main=main)
@@ -556,16 +555,16 @@ subsetData = function(
   
   cells.use <- intersect(cells.use,  object@cell.names)
   # To add downsample cells by uniformly sampling across ident
- # cells.use <-  WhichCells(
-#    object = object,
-#    cells.use = cells.use,
-#    max.cells.per.ident = max.cells.per.ident,
-#    random.seed = random.seed
-#  )
+  # cells.use <-  WhichCells(
+  #    object = object,
+  #    cells.use = cells.use,
+  #    max.cells.per.ident = max.cells.per.ident,
+  #    random.seed = random.seed
+  #  )
   
   
   object@data=object@data[,cells.use]
-
+  
   object@count.data=object@count.data[,cells.use]
   object@regress.data = object@regress.data[,cells.use]
   object@data.ngene=object@data.ngene[cells.use]
@@ -584,18 +583,18 @@ subsetData = function(
       }
     }
   }
-
-# Need to handle this smartly    
- # if (length(object@de.list) > 0) {
+  
+  # Need to handle this smartly    
+  # if (length(object@de.list) > 0) {
   #  for (i in 1:length(object@de.list)) {
-   #   if(length(object@dr[[i]]@cell.embeddings) > 0){
+  #   if(length(object@dr[[i]]@cell.embeddings) > 0){
   #      object@dr[[i]]@cell.embeddings <- object@dr[[i]]@cell.embeddings[cells.use, ,drop = FALSE]
   #    }
- #   }
- # }
+  #   }
+  # }
   
- return(object)
-          
+  return(object)
+  
 }         
 
 
@@ -622,7 +621,7 @@ setMethod("combineObjects","scR",
               cells1.names = cells1.use
               cells2.names = cells2.use
             }
-                  
+            
             
             
             min.cells.use=set.ifnull(min.cells.use, 20)
@@ -638,7 +637,7 @@ setMethod("combineObjects","scR",
             
             genes.useNot1 = setdiff(genes.use, genes.use1)
             genes.useNot2 = setdiff(genes.use, genes.use2)
-
+            
             if (length(genes.useNot1) > 0){
               print(1)
               shamMatrix1 = Matrix(0,nrow = length(genes.useNot1), ncol=ncol(Count.mat1))
@@ -659,9 +658,9 @@ setMethod("combineObjects","scR",
             Count.mat2 = Count.mat2[genes.use,]
             Count.mat = cbind(Count.mat1[, cells1.use], Count.mat2[,cells2.use])
             colnames(Count.mat) = c(cells1.names, cells2.names)
-
-
-
+            
+            
+            
             
             # Create new object
             object=scR(count.data=Count.mat,ident.fxn=getStat1)
@@ -684,7 +683,7 @@ setMethod("combineObjects","scR",
               names(orig_sample_id) = c(cells1.names, cells2.names)
               object@data.info[,paste0(field,"_old")] = factor(orig_sample_id)
             }
-           
+            
             
             # ident
             ident1 = paste0(tag1,"_", as.character(object1@ident))
@@ -695,8 +694,8 @@ setMethod("combineObjects","scR",
             object@data.info[,current.ident.name] = ident.new
             
             # Add identities
-           
-
+            
+            
             return(object)
           }         
 )
@@ -887,125 +886,125 @@ setMethod("ica", "scR",
 
 #' weight.var - if TRUE, then scores are weighted by their singular values, if not not
 pca2 = function(object,pc.genes=NULL,use.scaled=TRUE, use.col.scaled = FALSE,do.print=TRUE,pcs.print=5,pcs.store=40,genes.print=30,use.regress=TRUE,weight.var=TRUE,reduction.name="pca",reduction.key="PC",...) {
-            
-            if (use.regress){
-              if (object.size(object@regress.data) < 100){
-                print("Warning : Regression has not been done. Using object@data")
-                data.use = object@data
-              } else {
-                data.use = object@regress.data
-              }
-            } else {
-              data.use = object@data
-            }
   
-            pc.genes=set.ifnull(pc.genes,object@var.genes)
-            pc.genes = pc.genes[pc.genes%in%rownames(data.use)]
-            pc.genes.var = apply(data.use[pc.genes,],1,function(x) var(x))
-            genes.use = pc.genes[pc.genes.var>0]
-            
-            print(paste0("Performing PCA based on ", length(genes.use), " variable genes"))
-            if (use.scaled){
-              if (object.size(object@scale.data) < 1000){ 
-                if (!use.col.scaled){
-                  data.use=t(scale(t(data.use[genes.use,]))) 
-                } else {
-                  print("Scaling cells instead of genes")
-                  data.use = scale(data.use[genes.use,])
-                }
-                
-              } else {
-                print("Warning: using scale.data that has already been computed. set use.scaled=FALSE if you wish otherwise")
-                data.use = object@scale.data[genes.use,]
-                }
-            }
-            if (!use.scaled) data.use = t(scale(t(data.use[genes.use,]), center=TRUE, scale=FALSE))
-
-            
-            #pca.obj = irlba(t(data.use),n=pcs.store,center = FALSE, scale.=FALSE, ...)
-            svd.obj = irlba(t(data.use),nv = pcs.store, nu = pcs.store, center=FALSE, scale = FALSE, ...)
-            
-            eigvals = svd.obj$d^2 # eigenvalues
-            pca.rotation = svd.obj$v # the rotation matrix (genes x PCs)
-            
-            if (weight.var == TRUE){
-              # Weight by eigenvalues
-              pca.x = svd.obj$u %*% diag(svd.obj$d)
-            } else {
-              pca.x = svd.obj$u
-            }
-            
-            rownames(pca.x) = colnames(data.use)
-            colnames(pca.x) = paste0("PC", 1:pcs.store)
-            rownames(pca.rotation) = rownames(data.use)
-            colnames(pca.rotation) = paste0("PC", 1:pcs.store)
-            
-            pca.obj <- new(
-              Class = "dim.reduction",
-              gene.loadings = as.matrix(pca.rotation),
-              cell.embeddings = as.matrix(pca.x),
-              dim.var = 100*eigvals / sum(eigvals),
-              eigvals = eigvals,
-              key = reduction.key
-            )
-            
-           # pca.obj$eigvals = eigvals # TO DO: include a line that computes variances if the user wishes so
-            #pca.obj$x = pca.x
-            #pca.obj$rotation = pca.rotation
-            #object@pca.var = 100*pca.obj$eigvals / sum(pca.obj$eigvals)  
-            
-            pcs.store=min(pcs.store,ncol(pca.x))
-            pcs.print=min(pcs.print,ncol(pca.x))
-            object@pca.rot=data.frame(pca.x[,1:pcs.store])
-            rownames(object@pca.rot) = colnames(object@data)
-            object@pca.x=data.frame(pca.rotation[,1:pcs.store])
-            rownames(object@pca.x) = genes.use
-            
-            eval(expr = parse(text = paste0("object@dr$", reduction.name, "<- pca.obj")))
-            
-            if (do.print) {
-              pc_scores=object@pca.x
-              for(i in 1:pcs.print) {
-                code=paste("PC",i,sep="")
-                sx=pc_scores[order(pc_scores[,code]),]
-                print(code)
-                print(rownames(sx[1:genes.print,]))
-                print ("")
-                
-                print(rev(rownames(sx[(nrow(sx)-genes.print):nrow(sx),])))
-                print ("")
-                print ("")      
-              }
-            }
-            return(object)
-         
+  if (use.regress){
+    if (object.size(object@regress.data) < 100){
+      print("Warning : Regression has not been done. Using object@data")
+      data.use = object@data
+    } else {
+      data.use = object@regress.data
+    }
+  } else {
+    data.use = object@data
+  }
+  
+  pc.genes=set.ifnull(pc.genes,object@var.genes)
+  pc.genes = pc.genes[pc.genes%in%rownames(data.use)]
+  pc.genes.var = apply(data.use[pc.genes,],1,function(x) var(x))
+  genes.use = pc.genes[pc.genes.var>0]
+  
+  print(paste0("Performing PCA based on ", length(genes.use), " variable genes"))
+  if (use.scaled){
+    if (object.size(object@scale.data) < 1000){ 
+      if (!use.col.scaled){
+        data.use=t(scale(t(data.use[genes.use,]))) 
+      } else {
+        print("Scaling cells instead of genes")
+        data.use = scale(data.use[genes.use,])
+      }
+      
+    } else {
+      print("Warning: using scale.data that has already been computed. set use.scaled=FALSE if you wish otherwise")
+      data.use = object@scale.data[genes.use,]
+    }
+  }
+  if (!use.scaled) data.use = t(scale(t(data.use[genes.use,]), center=TRUE, scale=FALSE))
+  
+  
+  #pca.obj = irlba(t(data.use),n=pcs.store,center = FALSE, scale.=FALSE, ...)
+  svd.obj = irlba(t(data.use),nv = pcs.store, nu = pcs.store, center=FALSE, scale = FALSE, ...)
+  
+  eigvals = svd.obj$d^2 # eigenvalues
+  pca.rotation = svd.obj$v # the rotation matrix (genes x PCs)
+  
+  if (weight.var == TRUE){
+    # Weight by eigenvalues
+    pca.x = svd.obj$u %*% diag(svd.obj$d)
+  } else {
+    pca.x = svd.obj$u
+  }
+  
+  rownames(pca.x) = colnames(data.use)
+  colnames(pca.x) = paste0("PC", 1:pcs.store)
+  rownames(pca.rotation) = rownames(data.use)
+  colnames(pca.rotation) = paste0("PC", 1:pcs.store)
+  
+  pca.obj <- new(
+    Class = "dim.reduction",
+    gene.loadings = as.matrix(pca.rotation),
+    cell.embeddings = as.matrix(pca.x),
+    dim.var = 100*eigvals / sum(eigvals),
+    eigvals = eigvals,
+    key = reduction.key
+  )
+  
+  # pca.obj$eigvals = eigvals # TO DO: include a line that computes variances if the user wishes so
+  #pca.obj$x = pca.x
+  #pca.obj$rotation = pca.rotation
+  #object@pca.var = 100*pca.obj$eigvals / sum(pca.obj$eigvals)  
+  
+  pcs.store=min(pcs.store,ncol(pca.x))
+  pcs.print=min(pcs.print,ncol(pca.x))
+  object@pca.rot=data.frame(pca.x[,1:pcs.store])
+  rownames(object@pca.rot) = colnames(object@data)
+  object@pca.x=data.frame(pca.rotation[,1:pcs.store])
+  rownames(object@pca.x) = genes.use
+  
+  eval(expr = parse(text = paste0("object@dr$", reduction.name, "<- pca.obj")))
+  
+  if (do.print) {
+    pc_scores=object@pca.x
+    for(i in 1:pcs.print) {
+      code=paste("PC",i,sep="")
+      sx=pc_scores[order(pc_scores[,code]),]
+      print(code)
+      print(rownames(sx[1:genes.print,]))
+      print ("")
+      
+      print(rev(rownames(sx[(nrow(sx)-genes.print):nrow(sx),])))
+      print ("")
+      print ("")      
+    }
+  }
+  return(object)
+  
 }
 
 
 
 # Diffusion map
 DiffMap <- function(object,dims.use=1:20, reduction.type="pca", cells.use=NULL, dim.store=20,reduction.key="DC", reduction.name="dmap", ...) {
-            require(destiny)
-            cells.use = set.ifnull(cells.use, colnames(object@data))
-            data.use=GetCellEmbeddings(object, 
-                                       reduction.type = reduction.type, 
-                                       dims.use = dims.use, 
-                                       cells.use = cells.use)
-            data.use <- as.ExpressionSet(as.data.frame(data.use))
-            dm <- DiffusionMap(data.use,n_eigs = dim.store, ...)
-            cell.embeddings <- as.matrix(dm@eigenvectors)
-            rownames(cell.embeddings) <- cells.use
-            colnames(cell.embeddings) <- paste0(reduction.key,1:dim.store)
-            diff.obj <- new(
-              Class = "dim.reduction",
-              gene.loadings = matrix(rand(20),2,5),
-              cell.embeddings = cell.embeddings,
-              dim.var = dm@eigenvalues,
-              key = reduction.key
-            )
-            eval(expr = parse(text = paste0("object@dr$", reduction.name, "<- diff.obj")))
-            return(object)
-          
+  require(destiny)
+  cells.use = set.ifnull(cells.use, colnames(object@data))
+  data.use=GetCellEmbeddings(object, 
+                             reduction.type = reduction.type, 
+                             dims.use = dims.use, 
+                             cells.use = cells.use)
+  data.use <- as.ExpressionSet(as.data.frame(data.use))
+  dm <- DiffusionMap(data.use,n_eigs = dim.store, ...)
+  cell.embeddings <- as.matrix(dm@eigenvectors)
+  rownames(cell.embeddings) <- cells.use
+  colnames(cell.embeddings) <- paste0(reduction.key,1:dim.store)
+  diff.obj <- new(
+    Class = "dim.reduction",
+    gene.loadings = matrix(rand(20),2,5),
+    cell.embeddings = cell.embeddings,
+    dim.var = dm@eigenvalues,
+    key = reduction.key
+  )
+  eval(expr = parse(text = paste0("object@dr$", reduction.name, "<- diff.obj")))
+  return(object)
+  
 }
 
 
@@ -1075,24 +1074,24 @@ setMethod("doMCL_clustering", "scR",
               write('#Downsampled runs \n', file=job.filename, append=TRUE)
               if (num.reps > 0){
                 for (j in 1:num.reps){
-                     filename = paste0("./nn_graphs/edges_",clust.name,"_inflation", round(i,2),"_downsample",downsample.frac, "_rep", j, "_nn", num.nn,".tsv")
-                     filename.clusters = gsub("edges","clusters",filename)
-                     filename.clusters = gsub("nn_graphs","clusters",filename.clusters)
-                     filename.clusters = gsub("tsv","txt",filename.clusters)
-                     
-                     CMD = paste0("get_nn_graph(X=data.use, k=", num.nn, ", write.file = ","\"" , filename,"\"", ", downsample.frac = ", downsample.frac,")")
-                     write(CMD, file=job.filename, append=TRUE)
-                     
-                     CMD = paste0("run_MCL(nn_graph_file = ","\"" , filename,"\"" , ", out_file = ","\"" , filename.clusters,"\"" , ", inflation.use=",i,")")
-                     write(CMD, file=job.filename, append=TRUE)
-                     
-                     CMD = paste0("clust.ident = read_MCL_clusters(mcl_out_file = ", "\"", filename.clusters, "\"" , ", X = data.use)")
-                     write(CMD, file = job.filename,append=TRUE)
-                     
-                     CMD = paste0("clust.ident_all = cbind(clust.ident_all, clust.ident)")
-                     write(CMD, file = job.filename, append=TRUE)
-                     write("print(corner(clust.ident_all))", file = job.filename, append=TRUE)
-                     write('\n', file=job.filename, append=TRUE)
+                  filename = paste0("./nn_graphs/edges_",clust.name,"_inflation", round(i,2),"_downsample",downsample.frac, "_rep", j, "_nn", num.nn,".tsv")
+                  filename.clusters = gsub("edges","clusters",filename)
+                  filename.clusters = gsub("nn_graphs","clusters",filename.clusters)
+                  filename.clusters = gsub("tsv","txt",filename.clusters)
+                  
+                  CMD = paste0("get_nn_graph(X=data.use, k=", num.nn, ", write.file = ","\"" , filename,"\"", ", downsample.frac = ", downsample.frac,")")
+                  write(CMD, file=job.filename, append=TRUE)
+                  
+                  CMD = paste0("run_MCL(nn_graph_file = ","\"" , filename,"\"" , ", out_file = ","\"" , filename.clusters,"\"" , ", inflation.use=",i,")")
+                  write(CMD, file=job.filename, append=TRUE)
+                  
+                  CMD = paste0("clust.ident = read_MCL_clusters(mcl_out_file = ", "\"", filename.clusters, "\"" , ", X = data.use)")
+                  write(CMD, file = job.filename,append=TRUE)
+                  
+                  CMD = paste0("clust.ident_all = cbind(clust.ident_all, clust.ident)")
+                  write(CMD, file = job.filename, append=TRUE)
+                  write("print(corner(clust.ident_all))", file = job.filename, append=TRUE)
+                  write('\n', file=job.filename, append=TRUE)
                 }
                 clust.filename = paste0("./clusters/AllClusters_",clust.name,"_inflation", round(i,2),".txt")
                 CMD = paste0("write.table(clust.ident_all, file = ", "\"" , clust.filename,"\"", ", sep = \"\\t\", quote=FALSE)")
@@ -1142,7 +1141,7 @@ setMethod("NN_analysis", "scR",
             
             plot(c(0:nn.test), nnHist / nnHist[1], xlab = "Number of nearest neighbors", ylab = "Fraction of cells")
             
-
+            
           }
 )
 
@@ -1157,7 +1156,7 @@ setMethod("doLouvain_stability", "scR", function(object,n.iter=100,downsamp.frac
   colnames(inSampleMat) = cells.use; rownames(inSampleMat) = cells.use
   inClusterMat = Matrix(0, nrow=length(cells.use), ncol=length(cells.use), sparse=TRUE)
   colnames(inClusterMat) = cells.use; rownames(inClusterMat) = cells.use
-    
+  
   for (i in 1:n.iter){
     print(paste0("Niter ", i))
     cells.use1 = sample(cells.use, round(downsamp.frac * length(cells.use)))
@@ -1184,7 +1183,7 @@ setMethod("doLouvain_stability", "scR", function(object,n.iter=100,downsamp.frac
   cell.ord = names(sort(object@ident))
   diag(inSampleMat)  = 1
   ConfusionMat = inClusterMat[cell.ord, cell.ord] / inSampleMat[cell.ord, cell.ord]
-
+  
   annVal = c()
   for (i in sort(unique(object@ident))){
     annVal = c(annVal,rep(i, sum(object@ident==i)))
@@ -1198,77 +1197,77 @@ setMethod("doLouvain_stability", "scR", function(object,n.iter=100,downsamp.frac
   #If a cell has a higher stability in another cluster move it to the new cluster
   unstable_cells = rep(0, length(cell.ord));  names(unstable_cells) = cell.ord
   if (do.prune){
+    clusts = sort(unique(object@ident))
+    for (clust in clusts){
+      cells = which.cells(object, clust)
+      #Within a cluster compute the median stability of every cell within the cluster
+      median_in_clust = apply(ConfusionMat[cells,cells],1, median)
+      median_out_clust = matrix(0, nrow = length(clusts)-1, length(cells)); colnames(median_out_clust)=cells; rownames(median_out_clust) = setdiff(clusts,clust)
+      for (clust2 in setdiff(clusts,clust)){
+        cells2 = which.cells(object, clust2)
+        median_out_clust[clust2,] = apply(ConfusionMat[cells,cells2],1, median)
+      }
+      
+      max_val = apply(median_out_clust,2, max)
+      max_clust = rownames(median_out_clust)[apply(median_out_clust,2, which.max)]
+      names(max_clust) = colnames(median_out_clust)
+      unstable = names(median_in_clust)[median_in_clust < 0.7]
+      cells.to.move = names(median_in_clust)[median_in_clust < 0.7 & max_val > 0.7]
+      unstable = setdiff(unstable, cells.to.move)
+      if (length(cells.to.move) > 0){
+        print(length(cells.to.move))
+        object@ident[cells.to.move] = max_clust[cells.to.move]
+      }
+      
+      unstable_cells[unstable] = 1 
+      
+      
+    }
+    object@data.info$m = NULL
+    object@data.info$m = object@ident
+    #Recompute confusion matrix
+    cell.ord = names(sort(object@ident))
+    ConfusionMat = inClusterMat[cell.ord, cell.ord] / inSampleMat[cell.ord, cell.ord]
+    
+    annVal = c()
+    for (i in sort(unique(object@ident))){
+      annVal = c(annVal,rep(i, sum(object@ident==i)))
+    }
+    png("ConfusionMatrix_pruned_louvain.png",h=800,w=800)
+    print(aheatmap(as.matrix(ConfusionMat),Rowv=NA, Colv=NA, labRow=NULL, labCol=NULL, main="Confusion Matrix (unfiltered)"), annCol=annVal, annColors = list(rainbow(length(unique(annVal)))))
+    dev.off()
+    
+    cluster_instability = table(object@ident[names(unstable_cells[unstable_cells==1])]) / table(object@ident);
+    unstable_clusters = which(cluster_instability > 0.1, useNames = TRUE)
+    p=ggplot(data.frame(cluster_instability)) + geom_bar(aes(x=Var1, y=Freq), stat="identity", fill="blue") + theme_bw() + xlab("Cluster") + ylab("Instability Score") + gg.xax() + gg.yax() + ylim(c(0,1))
+    pdf("Cluster_instability_louvain.pdf",w=10,h=6)
+    print(p)
+    dev.off()
+    
+    
+    
+  }
+  
+  #Cluster Stability matrix
   clusts = sort(unique(object@ident))
+  MedianConfusion = matrix(0, nrow=length(clusts), ncol=length(clusts))
+  colnames(MedianConfusion) = clusts; rownames(MedianConfusion) = clusts
+  
   for (clust in clusts){
     cells = which.cells(object, clust)
+    MedianConfusion[clust,clust] = median(ConfusionMat[cells,cells])
     #Within a cluster compute the median stability of every cell within the cluster
-    median_in_clust = apply(ConfusionMat[cells,cells],1, median)
-    median_out_clust = matrix(0, nrow = length(clusts)-1, length(cells)); colnames(median_out_clust)=cells; rownames(median_out_clust) = setdiff(clusts,clust)
     for (clust2 in setdiff(clusts,clust)){
       cells2 = which.cells(object, clust2)
-      median_out_clust[clust2,] = apply(ConfusionMat[cells,cells2],1, median)
+      MedianConfusion[clust, clust2] = median(ConfusionMat[cells,cells2])
     }
-    
-    max_val = apply(median_out_clust,2, max)
-    max_clust = rownames(median_out_clust)[apply(median_out_clust,2, which.max)]
-    names(max_clust) = colnames(median_out_clust)
-    unstable = names(median_in_clust)[median_in_clust < 0.7]
-    cells.to.move = names(median_in_clust)[median_in_clust < 0.7 & max_val > 0.7]
-    unstable = setdiff(unstable, cells.to.move)
-    if (length(cells.to.move) > 0){
-      print(length(cells.to.move))
-      object@ident[cells.to.move] = max_clust[cells.to.move]
-    }
-    
-    unstable_cells[unstable] = 1 
-    
-    
   }
-  object@data.info$m = NULL
-  object@data.info$m = object@ident
-  #Recompute confusion matrix
-  cell.ord = names(sort(object@ident))
-  ConfusionMat = inClusterMat[cell.ord, cell.ord] / inSampleMat[cell.ord, cell.ord]
   
-  annVal = c()
-  for (i in sort(unique(object@ident))){
-    annVal = c(annVal,rep(i, sum(object@ident==i)))
-  }
-  png("ConfusionMatrix_pruned_louvain.png",h=800,w=800)
-  print(aheatmap(as.matrix(ConfusionMat),Rowv=NA, Colv=NA, labRow=NULL, labCol=NULL, main="Confusion Matrix (unfiltered)"), annCol=annVal, annColors = list(rainbow(length(unique(annVal)))))
+  pdf("ConfusionClust_louvain.pdf",h=8,w=8)
+  print(aheatmap(as.matrix(MedianConfusion),Rowv=NA, Colv=NA, labRow=NULL, labCol=NULL, main="Median Cluster Stability"))
   dev.off()
   
-  cluster_instability = table(object@ident[names(unstable_cells[unstable_cells==1])]) / table(object@ident);
-  unstable_clusters = which(cluster_instability > 0.1, useNames = TRUE)
-  p=ggplot(data.frame(cluster_instability)) + geom_bar(aes(x=Var1, y=Freq), stat="identity", fill="blue") + theme_bw() + xlab("Cluster") + ylab("Instability Score") + gg.xax() + gg.yax() + ylim(c(0,1))
-  pdf("Cluster_instability_louvain.pdf",w=10,h=6)
-  print(p)
-  dev.off()
-  
-  
-  
-}
-
-#Cluster Stability matrix
-clusts = sort(unique(object@ident))
-MedianConfusion = matrix(0, nrow=length(clusts), ncol=length(clusts))
-colnames(MedianConfusion) = clusts; rownames(MedianConfusion) = clusts
-
-for (clust in clusts){
-  cells = which.cells(object, clust)
-  MedianConfusion[clust,clust] = median(ConfusionMat[cells,cells])
-  #Within a cluster compute the median stability of every cell within the cluster
-    for (clust2 in setdiff(clusts,clust)){
-    cells2 = which.cells(object, clust2)
-    MedianConfusion[clust, clust2] = median(ConfusionMat[cells,cells2])
-  }
-}
-
-pdf("ConfusionClust_louvain.pdf",h=8,w=8)
-print(aheatmap(as.matrix(MedianConfusion),Rowv=NA, Colv=NA, labRow=NULL, labCol=NULL, main="Median Cluster Stability"))
-dev.off()
-
-return(object)
+  return(object)
   
 }
 )
@@ -1314,7 +1313,7 @@ doSIMLR_embedding = function(object,cells.use=NULL, genes.use=NULL, do.cluster=F
     data.use = object@data[genes.use, cells.use]
   }
   
- 
+  
   print(paste0("Seeking ", num.clusters, " clusters"))
   print(paste0("First reducing the dimensionality to ", num.pc, " PCs"))
   print(paste0("Using ", num.graphs, " k-nearest neighbor graphs with average k = ",num.nn))
@@ -1368,20 +1367,20 @@ setMethod("doGraph_clustering", "scR", function(object,cells.use=NULL,pcs.use=1:
     data.use=as.data.frame(t(object@scale.data[,cells.use]))
   }
   
- 
-#   if (!do.full.clust){
-#     Adj = getAdjMatrix(data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE,full.eval=adj.full)
-#   } else {
-#     Adj = as.matrix(data.use) %*% t(as.matrix(data.use)) 
-#   }
+  
+  #   if (!do.full.clust){
+  #     Adj = getAdjMatrix(data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE,full.eval=adj.full)
+  #   } else {
+  #     Adj = as.matrix(data.use) %*% t(as.matrix(data.use)) 
+  #   }
   
   if (method=="Louvain"){
-       if (!do.full.clust){
-         data.use = as.matrix(data.use)
-         Adj = getAdjMatrix(data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE,full.eval=adj.full)
-        } else {
-         Adj = as.matrix(data.use) %*% t(as.matrix(data.use)) 
-        }
+    if (!do.full.clust){
+      data.use = as.matrix(data.use)
+      Adj = getAdjMatrix(data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE,full.eval=adj.full)
+    } else {
+      Adj = as.matrix(data.use) %*% t(as.matrix(data.use)) 
+    }
     if (do.noise){
       n = sum(Adj>0)
       #Remove and add 5% of the edges
@@ -1422,7 +1421,7 @@ setMethod("doGraph_clustering", "scR", function(object,cells.use=NULL,pcs.use=1:
       }
     }
   }
-      
+  
   
   if (method=="Infomap"){
     if (!do.full.clust){
@@ -1470,63 +1469,63 @@ setMethod("doGraph_clustering", "scR", function(object,cells.use=NULL,pcs.use=1:
     new.levels[k] = 1:length(unique(graph.out$membership))
     levels(clust.assign) = new.levels
     clust.assign = factor(clust.assign, levels=1:length(unique(graph.out$membership)))
-                          
-     if (length(colnames(object@data)) == length(cells.use)){
-        object@data.info$m = NULL
-        object@data.info[names(clust.assign),"m"]=clust.assign
-         if (set.ident) {
-            object@ident=clust.assign; names(object@ident)=names(clust.assign);               
-            }
-       }
     
-}
-#   if (method=="Infomap"){
-#     #Init clust
-#     if (!exists("Network", mode="function")){
-#       source("/Users/karthik/Documents/SOFTWARE/Infomap/examples/R/load-infomap.R")
-#       library(igraph)
-#       #source("/home/unix/karthik/bin/Infomap/examples/R/load-infomap.R")
-#     }
-#     
-#     
-#     conf <- init("--two-level --silent")
-#     network <- Network(conf);
-#     
-#     network = getInfomapNetwork(network,data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE, is.symm=is.symm, do.noise=do.noise)
-#     network$finalizeAndCheckNetwork(TRUE, length(cells.use))
-#     
-#     #Infomap clustering
-#     
-#     tree <- HierarchicalNetwork(conf)
-#     run(network, tree);
-#     
-#     clusterIndexLevel <- 1 # 1, 2, ... or -1 for top, second, ... or lowest cluster level
-#     leafIt <- tree$leafIter(clusterIndexLevel)
-#     modules <- integer(length = network$numNodes())
-#     
-#     while (!leafIt$isEnd()) {
-#       modules[leafIt$originalLeafIndex + 1] = leafIt$clusterIndex() + 1
-#       leafIt$stepForward()
-#     }
-#     
-#     # Create igraph community data
-#     #comm <- create.communities(modules, algorithm = 'Infomap')
-#     #print(comm)
-#     
-#     clust.assign = modules
-#     names(clust.assign) = cells.use
-#     
-#     
-#     data.names=names(object@ident[cells.use])
-#     if (length(colnames(object@data)) == length(cells.use)){
-#       object@data.info$m = NULL
-#       object@data.info[data.names,"m"]=factor(clust.assign, levels=sort(unique(clust.assign)))
-#       if (set.ident) {
-#         object@ident=factor(clust.assign,levels=sort(unique(clust.assign))); names(object@ident)=data.names;               
-#       }
-#     }
-#     
-#   }
+    if (length(colnames(object@data)) == length(cells.use)){
+      object@data.info$m = NULL
+      object@data.info[names(clust.assign),"m"]=clust.assign
+      if (set.ident) {
+        object@ident=clust.assign; names(object@ident)=names(clust.assign);               
+      }
+    }
+    
+  }
+  #   if (method=="Infomap"){
+  #     #Init clust
+  #     if (!exists("Network", mode="function")){
+  #       source("/Users/karthik/Documents/SOFTWARE/Infomap/examples/R/load-infomap.R")
+  #       library(igraph)
+  #       #source("/home/unix/karthik/bin/Infomap/examples/R/load-infomap.R")
+  #     }
+  #     
+  #     
+  #     conf <- init("--two-level --silent")
+  #     network <- Network(conf);
+  #     
+  #     network = getInfomapNetwork(network,data.use,nn=num.nn,edge.weights=FALSE,do.jaccard=do.jaccard,do.sparse=TRUE, is.symm=is.symm, do.noise=do.noise)
+  #     network$finalizeAndCheckNetwork(TRUE, length(cells.use))
+  #     
+  #     #Infomap clustering
+  #     
+  #     tree <- HierarchicalNetwork(conf)
+  #     run(network, tree);
+  #     
+  #     clusterIndexLevel <- 1 # 1, 2, ... or -1 for top, second, ... or lowest cluster level
+  #     leafIt <- tree$leafIter(clusterIndexLevel)
+  #     modules <- integer(length = network$numNodes())
+  #     
+  #     while (!leafIt$isEnd()) {
+  #       modules[leafIt$originalLeafIndex + 1] = leafIt$clusterIndex() + 1
+  #       leafIt$stepForward()
+  #     }
+  #     
+  #     # Create igraph community data
+  #     #comm <- create.communities(modules, algorithm = 'Infomap')
+  #     #print(comm)
+  #     
+  #     clust.assign = modules
+  #     names(clust.assign) = cells.use
+  #     
+  #     
+  #     data.names=names(object@ident[cells.use])
+  #     if (length(colnames(object@data)) == length(cells.use)){
+  #       object@data.info$m = NULL
+  #       object@data.info[data.names,"m"]=factor(clust.assign, levels=sort(unique(clust.assign)))
+  #       if (set.ident) {
+  #         object@ident=factor(clust.assign,levels=sort(unique(clust.assign))); names(object@ident)=data.names;               
+  #       }
+  #     }
+  #     
+  #   }
   
   if (return.clust){
     return(clust.assign) 
@@ -1677,7 +1676,7 @@ setMethod("vizNetwork", "scR", function(object,cells.use=NULL,pcs.use=1:10,num.n
   nodes$color.border <- cols.use[ident.index]# "lightgrey"
   nodes$color.highlight.background <- "orange"
   nodes$color.highlight.border <- "darkred"
-
+  
   
   edges = igraph::as_data_frame(g, what="edges")
   if (ncol(edges) > 2) colnames(edges)[3] = "width"
@@ -1694,7 +1693,7 @@ setMethod("vizNetwork", "scR", function(object,cells.use=NULL,pcs.use=1:10,num.n
     net <- visNetwork(nodes, edges) %>% visInteraction(dragNodes=FALSE, dragView=FALSE, zoomView=FALSE) %>% visLayout(randomSeed=randomSeed.use)
   }
   return(net)
-
+  
 }
 )
 
@@ -1716,7 +1715,7 @@ setMethod("vizNetwork.feature", "scR", function(object,net, feature.use=NULL,use
   
   data.gene[data.gene>=scale.range[2]] = scale.range[2]
   data.gene[data.gene<=scale.range[1]] = scale.range[1]
-
+  
   if(data.range[2] > 5){
     b=1
   }else{
@@ -1754,7 +1753,7 @@ setMethod("doBackSPIN_clustering", "scR", function(object,cells.use=NULL, genes.
   } else {
     data.use=object@data[genes.use,cells.use]
   }
-
+  
   
   bs.result = BackSPIN(X=data.use, max_splits=max_splits,SPINiter=SPINiter, min.cells=10, B.iter=B.iter)
   if (doHeatmap){
@@ -1773,7 +1772,7 @@ setMethod("doBackSPIN_clustering", "scR", function(object,cells.use=NULL, genes.
     
   }
   
-
+  
 }
 )
 
@@ -1823,8 +1822,8 @@ setMethod("merge.clusters.by.de", "scR",
               filename = paste0("CLUSTER_PAIRWISE_MARKERS_",tag,".txt")
             }
             zz = file(filename,open="wt")
-          
-
+            
+            
             num.clust=length(levels(object@ident)) 
             print(levels(object@ident))
             print(paste0("Starting with ", num.clust, " clusters"))
@@ -1893,14 +1892,14 @@ setMethod("merge.clusters.by.de", "scR",
                 sink(zz1)
                 print(paste("merging",test.1,test.2," with # de.genes=", pass.thresh[test.1, test.2]))
                 sink()
-#                pass.thresh[test.2,]=rep(1e6,ncol(pass.thresh));
-#                pass.thresh[,test.2]=rep(1e6,nrow(pass.thresh))
+                #                pass.thresh[test.2,]=rep(1e6,ncol(pass.thresh));
+                #                pass.thresh[,test.2]=rep(1e6,nrow(pass.thresh))
                 pass.thresh = pass.thresh[-test.2,]; pass.thresh = pass.thresh[,-test.2]
                 object@ident = drop.levels(object@ident)
                 levels(object@ident) = c(1:length(levels(object@ident)))
                 object@data.info[,"m"] = object@ident
                 num.clust = max(as.numeric(levels(object@ident)))
-
+                
                 #Recompute pairwise markers for merged cluster
                 print(paste0("Recomputing pairwise markers for new clust ", test.1))
                 for (i in setdiff(c(1:num.clust), test.1)){
@@ -1916,13 +1915,13 @@ setMethod("merge.clusters.by.de", "scR",
               }
               colnames(pass.thresh) = 1:num.clust
               rownames(pass.thresh) = 1:num.clust
-
+              
               min.val = min(pass.thresh)
               min.val.ind = as.data.frame(which(pass.thresh==min.val, arr.ind = TRUE))
               min.val.ind = min.val.ind[min.val.ind$row < min.val.ind$col,]
               min.val.ind$val = min(pass.thresh)
               rownames(min.val.ind) = 1:nrow(min.val.ind)
-
+              
             }
             return(object)
           }
@@ -1954,36 +1953,36 @@ setMethod("merge.clusters.by.de2", "scR",
                 filename = paste0("CLUSTER_PAIRWISE_MARKERS_",tag,".txt")
               }
               zz = file(filename,open="wt")
-                  for(k in 1:num.clust) {
-                    i=clust.test[k]
-                    print(paste0("Testing Cluster ", i, "against clusters ", i+1,"-",num.clust))
-                    for(m in ((k+1):num.clust)) {
-                      j=clust.test[m]
-                      if (m>num.clust) break
-                      if (pass.thresh[i,j]==0) {
-                        #print(i)
-                        marker=find.markers(object,i,j,genes.use=genes.use,thresh.use=diff.thres,test.use= diff.test, test.max=test.max, TPM.mat=TPM.mat, Count.mat=Count.mat, min.pos.perc=min.pos.perc, min.diff = min.diff, max.neg.perc=max.neg.perc, pval.thresh = 1e-2, verbose=FALSE)
-                        pval2 = p.adjust(marker$pval, method="fdr")
-                        marker$pval = pval2
-                        marker.pass=subset(marker,pval<pval.cutoff)
-                        
-                        sink(zz)
-                        print(paste("For cluster ",i, "vs. cluster", j, " found ",nrow(marker.pass), " DE markers"))
-                        #print(head(subset(marker.pass, diff > 0),5))
-                        #print(head(subset(marker.pass, diff < 0),5))
-                        sink()
-                        
-                        num.de.genes = min(nrow(subset(marker.pass, diff > 0)), nrow(subset(marker.pass, diff < 0)))
-                        print(paste("For cluster ",i, "vs. cluster", j, " found ",nrow(subset(marker.pass, diff > 0)), " +ve DE markers and",
-                                    nrow(subset(marker.pass, diff < 0)), " -ve DE markers"))
-                        pass.thresh[i,j]=num.de.genes; pass.thresh[j,i]=pass.thresh[i,j];
-                        
-                      }
-                      
-                    }
+              for(k in 1:num.clust) {
+                i=clust.test[k]
+                print(paste0("Testing Cluster ", i, "against clusters ", i+1,"-",num.clust))
+                for(m in ((k+1):num.clust)) {
+                  j=clust.test[m]
+                  if (m>num.clust) break
+                  if (pass.thresh[i,j]==0) {
+                    #print(i)
+                    marker=find.markers(object,i,j,genes.use=genes.use,thresh.use=diff.thres,test.use= diff.test, test.max=test.max, TPM.mat=TPM.mat, Count.mat=Count.mat, min.pos.perc=min.pos.perc, min.diff = min.diff, max.neg.perc=max.neg.perc, pval.thresh = 1e-2, verbose=FALSE)
+                    pval2 = p.adjust(marker$pval, method="fdr")
+                    marker$pval = pval2
+                    marker.pass=subset(marker,pval<pval.cutoff)
                     
+                    sink(zz)
+                    print(paste("For cluster ",i, "vs. cluster", j, " found ",nrow(marker.pass), " DE markers"))
+                    #print(head(subset(marker.pass, diff > 0),5))
+                    #print(head(subset(marker.pass, diff < 0),5))
+                    sink()
+                    
+                    num.de.genes = min(nrow(subset(marker.pass, diff > 0)), nrow(subset(marker.pass, diff < 0)))
+                    print(paste("For cluster ",i, "vs. cluster", j, " found ",nrow(subset(marker.pass, diff > 0)), " +ve DE markers and",
+                                nrow(subset(marker.pass, diff < 0)), " -ve DE markers"))
+                    pass.thresh[i,j]=num.de.genes; pass.thresh[j,i]=pass.thresh[i,j];
                     
                   }
+                  
+                }
+                
+                
+              }
             } else {
               # not complete
               require(parallel)
@@ -1998,9 +1997,9 @@ setMethod("merge.clusters.by.de2", "scR",
                 vals = split((k+1):num.clust, ceiling(seq_along(1:((num.clust-k)/chunksize))))
                 export.funs = c("find.markers")
                 par.out = foreach(run.id = 1:n.cores, .combine=c) %dopar% {
-                v = vals[[run.id]]
-                do.call(c, lapply(v, function(i) {
-                     marker=find.markers(object,i,j,genes.use=genes.use,thresh.use=diff.thres,test.use= diff.test, test.max=test.max, TPM.mat=TPM.mat, Count.mat=Count.mat, min.pos.perc=min.pos.perc, min.diff = min.diff, max.neg.perc=max.neg.perc, pval.thresh = 1e-2, verbose=FALSE)
+                  v = vals[[run.id]]
+                  do.call(c, lapply(v, function(i) {
+                    marker=find.markers(object,i,j,genes.use=genes.use,thresh.use=diff.thres,test.use= diff.test, test.max=test.max, TPM.mat=TPM.mat, Count.mat=Count.mat, min.pos.perc=min.pos.perc, min.diff = min.diff, max.neg.perc=max.neg.perc, pval.thresh = 1e-2, verbose=FALSE)
                     pval2 = p.adjust(marker$pval, method="fdr")
                     marker$pval = pval2
                     marker.pass=subset(marker,pval<pval.cutoff)
@@ -2012,7 +2011,7 @@ setMethod("merge.clusters.by.de2", "scR",
                 stopCluster(cl)
                 registerDoSEQ()
                 cat(" done\n");
-              
+                
               }
               
               
@@ -2118,18 +2117,18 @@ setMethod("ClusterCentroids", "scR",
             
             centroids = c()
             for (i in levels(ident.use)){
-                cells.in.cluster = which.cells(object, i)
-                cells.in.cluster = cells.in.cluster[cells.in.cluster %in% cells.use]
-                centroids = rbind(centroids, colMeans(data.use[cells.in.cluster,]))
+              cells.in.cluster = which.cells(object, i)
+              cells.in.cluster = cells.in.cluster[cells.in.cluster %in% cells.use]
+              centroids = rbind(centroids, colMeans(data.use[cells.in.cluster,]))
             }
             centroids = as.data.frame(centroids)
             colnames(centroids) = colnames(data.use)
             rownames(centroids) = as.numeric(levels(object@ident))
-          
+            
             return(centroids)
           }
-            
-
+          
+          
 )
 
 setGeneric("ComputeClusterDistances", function(object, reduction.use="pca", dist.type="nn", pcs.use = 1:10, cells.use=NULL, genes.use=NULL) standardGeneric("ComputeClusterDistances"))
@@ -2141,7 +2140,7 @@ setMethod("ComputeClusterDistances", "scR",
             if (reduction.use == "tsne"){
               data.use = object@tsne.rot[cells.use,]
               centroids = ClusterCentroids(object, reduction.use="tsne", cells.use=cells.use)
-            
+              
             }
             if (reduction.use == "pca"){
               pcs.use = set.ifnull(pcs.use, dim(object@pca.rot)[2])
@@ -2161,27 +2160,27 @@ setMethod("ComputeClusterDistances", "scR",
             
             num.clust = length(levels(ident.use))
             
-
+            
             if (dist.type == "nn"){
               clust.dists = matrix(0, nrow=num.clust, ncol=num.clust)
               diag(clust.dists) = 1e6
               rownames(clust.dists) = levels(ident.use)
               colnames(clust.dists) = rownames(clust.dists)
-                for (i in 1:nrow(clust.dists)){
-                   for(j in ((i+1):ncol(clust.dists))){
-                      if (j>nrow(clust.dists)) break
-                      cells.in.cluster_i = which.cells(object, i)
-                      cells.in.cluster_i = cells.in.cluster_i[cells.in.cluster_i %in% cells.use]
-                      cells.in.cluster_j = which.cells(object, j)
-                      cells.in.cluster_j = cells.in.cluster_j[cells.in.cluster_j %in% cells.use]
-                      
-                      nnA = nn2(data.use[cells.in.cluster_i,], query = centroids[j,], k=1)
-                      nnB = nn2(data.use[cells.in.cluster_j,], query = centroids[i,],k=1)
-                      clust.dists[i,j] = min(c(nnA$nn.dists, nnB$nn.dists))
-                      
-                      clust.dists[j,i] = clust.dists[i,j]
-                   }
+              for (i in 1:nrow(clust.dists)){
+                for(j in ((i+1):ncol(clust.dists))){
+                  if (j>nrow(clust.dists)) break
+                  cells.in.cluster_i = which.cells(object, i)
+                  cells.in.cluster_i = cells.in.cluster_i[cells.in.cluster_i %in% cells.use]
+                  cells.in.cluster_j = which.cells(object, j)
+                  cells.in.cluster_j = cells.in.cluster_j[cells.in.cluster_j %in% cells.use]
+                  
+                  nnA = nn2(data.use[cells.in.cluster_i,], query = centroids[j,], k=1)
+                  nnB = nn2(data.use[cells.in.cluster_j,], query = centroids[i,],k=1)
+                  clust.dists[i,j] = min(c(nnA$nn.dists, nnB$nn.dists))
+                  
+                  clust.dists[j,i] = clust.dists[i,j]
                 }
+              }
             }
             
             colnames(clust.dists) = c(1:ncol(clust.dists))
@@ -2282,7 +2281,7 @@ setMethod("fetch.data","scR",
             if (use.count) data.expression=object@count.data[,cells.use]
             var.options0=c("ident","data.ngene","cell.names")
             var.options=c("data.info","pca.rot","ica.rot","tsne.rot",
-"dr$cca@cell.embeddings","dr$cca.aligned@cell.embeddings")
+                          "dr$cca@cell.embeddings","dr$cca.aligned@cell.embeddings")
             data.expression=t(data.expression)
             vars.in.data = c()
             for (my.var in vars.all) {
@@ -2340,9 +2339,9 @@ setMethod("viz.pca", "scR",
               subset.use=sx[c(1:num.genes,(nrow(sx)-num.genes):nrow(sx)),]
               plot(subset.use[,i],1:nrow(subset.use),pch=16,col="blue",xlab=paste("PC",i,sep=""),yaxt="n",ylab="")
               if (gene.labels=="right"){
-                  axis(4,at=1:nrow(subset.use),labels = rownames(subset.use),las=1,cex.axis=font.size) 
+                axis(4,at=1:nrow(subset.use),labels = rownames(subset.use),las=1,cex.axis=font.size) 
               } else {
-                  axis(2,at=1:nrow(subset.use),labels = rownames(subset.use),las=1,cex.axis=font.size)
+                axis(2,at=1:nrow(subset.use),labels = rownames(subset.use),las=1,cex.axis=font.size)
               }
             }
             rp()
@@ -2368,13 +2367,13 @@ setMethod("viz.pc.heatmap", "scR",
             cells.use.ord = names(pc_scores)
             
             if (!do.average){
-                if (use.count){
-                    data.plot = object@count.data[genes.use, cells.use.ord]
-                } else {
-                  data.plot = object@data[genes.use, cells.use.ord]
-                }
+              if (use.count){
+                data.plot = object@count.data[genes.use, cells.use.ord]
+              } else {
+                data.plot = object@data[genes.use, cells.use.ord]
+              }
             } else {
-               data.plot = as.data.frame(t(fetch.data(object, vars.all = genes.use, use.scaled = FALSE, use.count = use.count, use.raw = FALSE)))
+              data.plot = as.data.frame(t(fetch.data(object, vars.all = genes.use, use.scaled = FALSE, use.count = use.count, use.raw = FALSE)))
             }
             if (do.scale) data.plot = t(scale(t(data.plot)))
             data.plot=minmax(data.plot[rev(genes.use),],min=min.disp,max=max.disp)
@@ -2409,13 +2408,13 @@ setMethod("viz.pc.heatmap", "scR",
                 heatmap3(as.matrix(data.plot),Colv=do.col.clust, Rowv=NA, scale="none", cexCol=cex.col.use, balanceColor = T, cexRow=cex.row.use, labCol=lab.col.use,
                          ColSideAnn=ColSideAnn,ColSideFun=function(x) showAnn(x),ColSideWidth=0.8)
               }
-              } else {
+            } else {
               require(colorRamps)
               if (do.scale){ 
                 scale.type = "row"
               } else {
-                  scale.type = "none"
-                }
+                scale.type = "none"
+              }
               print(aheatmap(data.plot, Rowv = NA, Colv=NA, color=blue2red(20), scale=scale.type))
             }
           }
@@ -2431,11 +2430,11 @@ setMethod("hclust.heatmap", "scR",
             genes.use = set.ifnull(genes.use, rownames(object@data))
             genes.use = genes.use[genes.use %in% rownames(object@data)]
             
-              if (use.count){
-                data.plot = object@count.data[genes.use, cells.use]
-              } else {
-                data.plot = object@data[genes.use, cells.use]
-              }
+            if (use.count){
+              data.plot = object@count.data[genes.use, cells.use]
+            } else {
+              data.plot = object@data[genes.use, cells.use]
+            }
             
             if (do.scale) data.plot = t(scale(t(data.plot)))
             data.plot=minmax(data.plot[rev(genes.use),],min=min.disp,max=max.disp)
@@ -2447,7 +2446,7 @@ setMethod("hclust.heatmap", "scR",
             }
             
             print(paste0("Using min.disp=",min.disp," and max.disp=", max.disp))
-          
+            
             if (is.null(ann.id)){
               heatmap3(data.plot,Colv=NA, Rowv=NA, scale="none", cexCol=cex.col.use, balanceColor = T, cexRow=cex.row.use, labCol=lab.col.use, method="average")
             } else {
@@ -2455,9 +2454,9 @@ setMethod("hclust.heatmap", "scR",
               ColSideAnn=data.frame(object@ident[colnames(data.plot)])
               colnames(ColSideAnn) = "Group"
               heatmap3(data.plot,Colv=do.col.clust, Rowv=do.row.clust, scale="none", cexCol=cex.col.use, balanceColor = T, cexRow=cex.row.use, labCol=lab.col.use,
-                         ColSideAnn=ColSideAnn,ColSideFun=function(x) showAnn(x),ColSideWidth=0.8, method="average", distfun = function(x) dist(x, method="euclidean"))
+                       ColSideAnn=ColSideAnn,ColSideFun=function(x) showAnn(x),ColSideWidth=0.8, method="average", distfun = function(x) dist(x, method="euclidean"))
             }
-
+            
           }
 )
 
@@ -2597,7 +2596,7 @@ setMethod("marker.test", "scR",
             
             #Genes to test
             genes.diff = filter.genes.by.effect.size(object, cells.1, cells.2, genes.use, thresh.use,...)
-          
+            
             if (length(genes.diff)==0) return( data.frame(pval=numeric(0), diff=numeric(0), fracDiff=numeric(0)))
             if (!is.null(test.max)){
               genes.diff = genes.diff[1:min(test.max,length(genes.diff))]
@@ -2820,8 +2819,8 @@ setMethod("find.markers.rf.binary", "scR",
             
             df2=data.frame(importance=sort.by.imp2[1:30], genes = factor(names(sort.by.imp2[1:30]), levels=names(sort.by.imp2[1:30])) )
             p2=ggplot(df2, aes(y=importance, x= genes)) + geom_bar(stat="identity",fill="blue") + ggtitle(paste(ident.2.name, " Discriminatory genes")) + theme_bw() + gg.xax() + gg.yax() +
-            
-            pdf(paste0(ident.1.name,"_vs_",ident.2.name,"_RF.pdf"), w=12,h=12)
+              
+              pdf(paste0(ident.1.name,"_vs_",ident.2.name,"_RF.pdf"), w=12,h=12)
             print(grid.arrange(p1,p2, ncol=1))
             dev.off()
             
@@ -2909,7 +2908,7 @@ setMethod("find.all.markers.rf", "scR",
               for (j in clust.include){
                 cells.in.cluster = names(ident.use)[which(ident.use == j)]
                 vec.exp = apply(object@count.data[genes, cells.in.cluster], 1, function(x) round(mean(x),3)) 
-               to.return[strtrow:endrow, paste0("nTrans_",j)] = vec.exp
+                to.return[strtrow:endrow, paste0("nTrans_",j)] = vec.exp
               }
               
               l=l+1;
@@ -2940,7 +2939,7 @@ setMethod("find.all.markers.rf", "scR",
             }
             
             
-        
+            
             
             
             return(to.return)
@@ -3074,7 +3073,7 @@ setMethod("set.ident", "scR",
             if (length(anotinb(cells.use,object@cell.names)>0)) {
               print(paste("ERROR : Cannot find cells ",anotinb(cells.use,object@cell.names)))
             }
-          
+            
             ident.new=anotinb(ident.use,levels(object@ident))
             object@ident=factor(object@ident,levels = unique(c(as.character(object@ident),as.character(ident.new))))
             object@ident[cells.use]=ident.use
@@ -3367,7 +3366,7 @@ setMethod("addImputedScore", "scR",
               temp = rbind(temp, lasso.fits[genes.new,])
               object@imputed = cbind(object@imputed, temp)
             }
-           
+            
             if (add.imputed){
               return(object)
             } else {
@@ -3449,7 +3448,7 @@ setMethod("fitDetectProb","scR",
             #pop.avg = set.ifnull(pop.avg, apply(data, 1, function(x) expMean(x)))
             cell.name=set.ifnull(cell.name,"Group")
             
-          
+            
             pop.avg = set.ifnull(pop.avg, apply(data,1,humpMean,min=drop.expr))
             trusted.genes = intersect(trusted.genes, names(pop.avg))
             pop.avg = pop.avg[trusted.genes]
@@ -3504,7 +3503,7 @@ setMethod("fitDetectProb","scR",
 setGeneric("signature.vector.pc", function(object,pc.1=1,pc.2=2,sig.genes = NULL,sig.name=NULL,cells.use=NULL,pt.size=3,do.bare=FALSE,cols.use=NULL,reduction.use="pca", min.perc.gene = 0.001, max.perc.gene=1, seg.color="blue", do.return=FALSE) standardGeneric("signature.vector.pc"))
 setMethod("signature.vector.pc", "scR", 
           function(object,pc.1=1,pc.2=2,sig.genes = NULL, sig.name=NULL, cells.use=NULL,pt.size=3,do.bare=FALSE,cols.use=NULL,reduction.use="pca", min.perc.gene = 0.001, max.perc.gene=1,seg.color="blue", do.return=FALSE) {
-          
+            
             sig.genes = sig.genes[sig.genes %in% rownames(object@data)]
             if (length(sig.genes)==0){
               stop("Signature is either of length zero, or none of the genes are appreciably expressed. Check gene names")
@@ -3529,10 +3528,10 @@ setMethod("signature.vector.pc", "scR",
               dim.code="IC"
             }
             
-           
+            
             df = fetch.data(object, vars.all=c(paste0(dim.code, c(pc.1, pc.2))))
             r1 = cor(df[,1], score); r2 = cor(df[,2],score)
-           
+            
             xend1 = r1*max(sign(r1)*df[,1]); yend1 = r2*max(sign(r2)*df[,2])
             df1 = data.frame(x1=0, y1=0, xend1=xend1, yend1=yend1)
             #p2 = p + geom_segment(aes(x=0,y=0,xend = r1*xmax, yend=r2*ymax), color=seg.color,arrow = arrow(length = unit(0.5,"cm"))) + annotate("text", x=1.1*xmax*r1, y=1.1*ymax*r2, label=sig.name)
@@ -3616,8 +3615,8 @@ setMethod("prune.clust", "scR",
                            min.cells, " cells"))
               cells.use = which.cells(object, clust.use)
             }
-
-              
+            
+            
             
             if (!(is.null(attributes.yes)) | !(is.null(attributes.no))){
               print(paste0("Using id = ", id.use, " for pruning"))
@@ -3628,9 +3627,9 @@ setMethod("prune.clust", "scR",
               attributes.yes = intersect(colnames(df), attributes.yes)
               if (!(is.null(attributes.yes))){
                 for (att in attributes.yes){
-                clust = rownames(df_agg)[which(df_agg[,att] <= mean(df_agg[,att]) - 1 * sd(df_agg[,att])) ]
-                print(paste0("Removing ", paste0(clust, collapse = ","), " based on low ", att))
-                clusters_to_remove = union(clusters_to_remove, clust)
+                  clust = rownames(df_agg)[which(df_agg[,att] <= mean(df_agg[,att]) - 1 * sd(df_agg[,att])) ]
+                  print(paste0("Removing ", paste0(clust, collapse = ","), " based on low ", att))
+                  clusters_to_remove = union(clusters_to_remove, clust)
                 }
               }
               
@@ -3691,7 +3690,7 @@ setMethod("force.merge", "scR",
               ident.use = factor(ident.use)
               object@data.info[,set.data.info] = ident.use
             }
-          
+            
             return(object)
           }
 )
@@ -3966,7 +3965,7 @@ setMethod("dot.plot","scR",
 ) 
 
 setGeneric("gene.dist.plot", function(object,ident.use=NULL,features.plot,nCol=NULL,ylab.max=12,do.ret=FALSE,do.sort=FALSE,size.x.use=16,size.y.use=16,size.title.use=20, use.imputed=FALSE,adjust.use=1,size.use=1,cols.use=NULL,
-                                do.mean=FALSE,use.raw=FALSE,vln.vert=FALSE,...)  standardGeneric("gene.dist.plot"))
+                                      do.mean=FALSE,use.raw=FALSE,vln.vert=FALSE,...)  standardGeneric("gene.dist.plot"))
 setMethod("gene.dist.plot","scR",
           function(object,ident.use=NULL,features.plot,nCol=NULL,ylab.max=12,do.ret=FALSE,do.sort=FALSE,size.x.use=16,size.y.use=16,size.title.use=20,use.imputed=FALSE,adjust.use=1,
                    size.use=1,cols.use=NULL,do.mean=FALSE,use.raw=FALSE,...) {
@@ -4049,7 +4048,7 @@ setMethod("jackStrawPlot","scR",
             pc.score=unlist(lapply(1:num.pc, function(x) prop.test(c(length(which(pAll[,x]<=score.thresh)),floor(nrow(pAll)*score.thresh)),c(nrow(pAll),nrow(pAll)))$p.val))
             
             unlist(lapply(1:num.pc,function(x) {qqplot(pAll[,x],runif(1000),,xlim=c(0,plot.lim),ylim=c(0,plot.lim),xlab=colnames(pAll)[x],pch=16,main=round(pc.score[x],4)); 
-                                                lines(seq(0,1,0.01),seq(0,1,0.01),lty=2,lwd=2)}))
+              lines(seq(0,1,0.01),seq(0,1,0.01),lty=2,lwd=2)}))
             #            unlist(lapply(1:num.pc,function(x) {qqplot(pAll[,x],runif(1000),,xlim=c(0,plot.lim),ylim=c(0,plot.lim),xlab=colnames(pAll)[x],pch=16); 
             #                                                lines(seq(0,1,0.01),seq(0,1,0.01),lty=2,lwd=2)}))
             rp()
@@ -4073,7 +4072,7 @@ setMethod("jackStrawPlot2","scR",
             num.row=floor(num.pc/2-1e-5)+1
             par(mfrow=c(2,num.row))
             unlist(lapply(1:num.pc,function(x) {qqplot(pAll[,x],runif(1000),,xlim=c(0,plot.lim),ylim=c(0,plot.lim),xlab=colnames(pAll)[x],pch=16); 
-                                                lines(seq(0,1,0.01),seq(0,1,0.01),lty=2,lwd=2)}))
+              lines(seq(0,1,0.01),seq(0,1,0.01),lty=2,lwd=2)}))
             rp()
           }
 )
@@ -4357,8 +4356,8 @@ NB.var.genes <- function(
   cut.quantile=0.99,
   rem.mt.rp = FALSE,
   max.cor = 0.5,
-return.top.genes = FALSE,
-topn = 500) {
+  return.top.genes = FALSE,
+  topn = 500) {
   
   require(MASS)
   print("Identifying variable genes based on UMI Counts. Warning - use this only for UMI based data")
@@ -4366,9 +4365,9 @@ topn = 500) {
   genes.use=set.ifnull(genes.use, rownames(object@data))
   
   if (is.null(do.idents)){
-      ident.label = "all"
-      cells.use=set.ifnull(cells.use,colnames(object@data))  
-      multi.idents = FALSE
+    ident.label = "all"
+    cells.use=set.ifnull(cells.use,colnames(object@data))  
+    multi.idents = FALSE
   } else {
     if (is.logical(do.idents) & do.idents == T){
       do.idents = levels(object@ident)
@@ -4384,7 +4383,7 @@ topn = 500) {
     print(1)
     if (multi.idents){ 
       print(paste0("Extracting variable genes for sample : ", ident))
-      }
+    }
     cells.use = set.ifnull(cells.use, which.cells(object, ident))
     cells.final = c(cells.final, cells.use)
     if (length(cells.use) < min.cells){
@@ -4506,7 +4505,7 @@ topn = 500) {
     }
     
     if ("rp.score" %in% colnames(object@data.info)){
-    cor.vec2 = apply(object@data[genes.return,cells.final],1,function(x) abs(cor(x, object@data.info[cells.final,"rp.score"])))
+      cor.vec2 = apply(object@data[genes.return,cells.final],1,function(x) abs(cor(x, object@data.info[cells.final,"rp.score"])))
     }
     var.genes = genes.return[cor.vec1 < max.cor & cor.vec2 < max.cor]
     print(paste0("Removed ", length(genes.return) - length(var.genes), " variable genes"))
@@ -4518,9 +4517,9 @@ topn = 500) {
     return(object)
   }
   if (!set.var.genes) return(genes.return)
-          
+  
 }
-          
+
 
 setGeneric("prune.var.genes", function(object, cells.use=NULL, genes.use = NULL, pos.corr.thresh=0.3, neg.corr.thresh=-0.4, n.thresh=4, n.pos.thresh=1, set.var.genes=TRUE, do.remove=TRUE, do.print=FALSE) standardGeneric("prune.var.genes"))
 setMethod("prune.var.genes", signature = "scR",
@@ -4563,7 +4562,7 @@ setMethod("prune.var.genes", signature = "scR",
               pass.ind = which((PosCorr >= n.pos.thresh) & (PosCorr + NegCorr >= n.thresh))
               for (k in pass.ind){
                 if (do.print){
-                print(paste0("Adding ", genes.in.block[k], " with ", PosCorr[k], " +ve correlations and ", NegCorr[k], " -ve correlations within old set"))
+                  print(paste0("Adding ", genes.in.block[k], " with ", PosCorr[k], " +ve correlations and ", NegCorr[k], " -ve correlations within old set"))
                 }
                 var.genes1 = c(var.genes1, genes.in.block[k])
               }    
@@ -4588,7 +4587,7 @@ setMethod("prune.var.genes", signature = "scR",
                   count_plus = length(var.genes1)
                 }
                 if (do.print){
-                print(paste0("Testing genes ", count+1, "-", count_plus))
+                  print(paste0("Testing genes ", count+1, "-", count_plus))
                 }
                 data1 = data.var.genes1[var.genes1[(count+1):(count_plus)],]
                 genes.in.block = rownames(data1)
@@ -4605,13 +4604,13 @@ setMethod("prune.var.genes", signature = "scR",
                 
                 for (k in nopass.ind){
                   if (do.print){
-                  print(paste0("Removing ", genes.in.block[k], " with no correlations within expanded set"))
+                    print(paste0("Removing ", genes.in.block[k], " with no correlations within expanded set"))
                   }
                 }
                 count=count_plus
               }
-              } else {
-                var.genes2=var.genes1
+            } else {
+              var.genes2=var.genes1
             }  
             
             if (set.var.genes) { 
@@ -4619,8 +4618,8 @@ setMethod("prune.var.genes", signature = "scR",
               return(object)
             } else { return(var.genes2)}
             
-          
-            }
+            
+          }
           
 )
 
@@ -4637,28 +4636,28 @@ setMethod("jackstraw.permutation.test", "scR",
             perm.obj = permutationPA(data, B=n.resamp, threshold=p.thres, verbose=do.verbose, seed=seed.val, max.pc=max.pc, n.cores=n.cores)
             return(perm.obj)
           })
-          
+
 
 
 setGeneric("doGOseq", function(object,bg.genes=NULL,fg.genes=NULL, genome=NULL, id = NULL, geneLengths=NULL, p.adj.method="BH", pval.thres=1e-4,... ) standardGeneric("doGOseq"))
 setMethod("doGOseq", "scR", 
           function(object,bg.genes=NULL,fg.genes=NULL, genome=NULL, id = NULL, geneLengths=NULL,p.adj.method="BH", pval.thres=1e-4,... ) {
-                bg.genes = set.ifnull(bg.genes, rownames(object@data))
-                fg.genes = set.ifnull(fg.genes, object@var.genes)
-                kill.ifnull(genome, "Error: Need to specify Genome")
-                kill.ifnull(id, "Error: Need to specify gene identifier")
-                
-                gene.vector <- as.integer(bg.genes%in%fg.genes)
-                names(gene.vector) <- bg.genes
-                
-                pwf <- nullp(gene.vector, genome,id,bias.data=geneLengths) #Empirical null distribution with length correction
-                GO.wall=goseq(pwf,genome,id,...)
-                enriched.GO = GO.wall[p.adjust(GO.wall$over_represented_pvalue, method=p.adj.method) < pval.thres, 
-                                      c("category","over_represented_pvalue", "term","ontology", "numDEInCat", "numInCat")]
-                rownames(enriched.GO) = enriched.GO$category
-                enriched.GO = enriched.GO[,-1]
-                
-                return(enriched.GO)
+            bg.genes = set.ifnull(bg.genes, rownames(object@data))
+            fg.genes = set.ifnull(fg.genes, object@var.genes)
+            kill.ifnull(genome, "Error: Need to specify Genome")
+            kill.ifnull(id, "Error: Need to specify gene identifier")
+            
+            gene.vector <- as.integer(bg.genes%in%fg.genes)
+            names(gene.vector) <- bg.genes
+            
+            pwf <- nullp(gene.vector, genome,id,bias.data=geneLengths) #Empirical null distribution with length correction
+            GO.wall=goseq(pwf,genome,id,...)
+            enriched.GO = GO.wall[p.adjust(GO.wall$over_represented_pvalue, method=p.adj.method) < pval.thres, 
+                                  c("category","over_represented_pvalue", "term","ontology", "numDEInCat", "numInCat")]
+            rownames(enriched.GO) = enriched.GO$category
+            enriched.GO = enriched.GO[,-1]
+            
+            return(enriched.GO)
             
           }
 )
@@ -4683,7 +4682,7 @@ setMethod("PlotMetaData", "scR",
               
               if (max(x) > 5e4){
                 pList[[l]] = pList[[l]] + geom_histogram(aes(fill=orig), binwidth=0.2, alpha=0.6) + scale_x_log10()
-                  
+                
               } else {
                 pList[[l]] = pList[[l]] + geom_histogram(aes(fill=orig), binwidth=max(x)/20, alpha=0.6)
               }
@@ -4735,11 +4734,11 @@ setMethod("CorrelateMetaData", "scR",
             print(features)
             print(pc_vec)
             for (f in features){
-               v = c()
-               for (pc in pc_vec){
-                 v = c(v, -log10(cor.test(PC[,pc], MetaData[,f])$p.value))
-               }
-               df = cbind(df, v)
+              v = c()
+              for (pc in pc_vec){
+                v = c(v, -log10(cor.test(PC[,pc], MetaData[,f])$p.value))
+              }
+              df = cbind(df, v)
             }
             colnames(df)[2:ncol(df)] = features
             df$PC = factor(as.character(df$PC), levels=as.character(df$PC))
@@ -4801,23 +4800,23 @@ setMethod("QCnorm", "scR",
             ExpMat = object@data
             #ExpMat0 = object@data
             #MedMat0 = apply(object@data,1,median)
-           #MedMat0 = as.data.frame(replicate(ncol(object@data), MedMat0)); rownames(MedMat0) = rownames(object@data); colnames(MedMat0) = colnames(object@data)
+            #MedMat0 = as.data.frame(replicate(ncol(object@data), MedMat0)); rownames(MedMat0) = rownames(object@data); colnames(MedMat0) = colnames(object@data)
             
             for (pc in colnames(pc.bins)){
               for (i in levels(pc.bins[,pc])){
-                  cells.in.bin = which(pc.bins[,pc]==i)
-                  if(length(cells.in.bin) == 0) next
-                  if (length(cells.in.bin) > 1){
-                     MedMat0 = apply(ExpMat,1,median)
-                     MedMat0 = as.data.frame(replicate(ncol(ExpMat), MedMat0)); rownames(MedMat0) = rownames(ExpMat); colnames(MedMat0) = colnames(ExpMat)
-                     MedMat = apply(ExpMat[,cells.in.bin],1,median);
-                     MedMat = as.data.frame(replicate(length(cells.in.bin), MedMat)); rownames(MedMat) = rownames(ExpMat); colnames(MedMat) = colnames(ExpMat)[cells.in.bin]    
-                     ExpMat[,cells.in.bin] = ExpMat[,cells.in.bin] - MedMat + MedMat0[,cells.in.bin]
-                  } else {
-                    MedMat = ExpMat[,cells.in.bin]
-                    MedMat0 = apply(ExpMat,1,median)
-                    ExpMat[,cells.in.bin] = ExpMat[,cells.in.bin] - MedMat + MedMat0
-                  }
+                cells.in.bin = which(pc.bins[,pc]==i)
+                if(length(cells.in.bin) == 0) next
+                if (length(cells.in.bin) > 1){
+                  MedMat0 = apply(ExpMat,1,median)
+                  MedMat0 = as.data.frame(replicate(ncol(ExpMat), MedMat0)); rownames(MedMat0) = rownames(ExpMat); colnames(MedMat0) = colnames(ExpMat)
+                  MedMat = apply(ExpMat[,cells.in.bin],1,median);
+                  MedMat = as.data.frame(replicate(length(cells.in.bin), MedMat)); rownames(MedMat) = rownames(ExpMat); colnames(MedMat) = colnames(ExpMat)[cells.in.bin]    
+                  ExpMat[,cells.in.bin] = ExpMat[,cells.in.bin] - MedMat + MedMat0[,cells.in.bin]
+                } else {
+                  MedMat = ExpMat[,cells.in.bin]
+                  MedMat0 = apply(ExpMat,1,median)
+                  ExpMat[,cells.in.bin] = ExpMat[,cells.in.bin] - MedMat + MedMat0
+                }
               }
             }
             
@@ -4835,37 +4834,37 @@ setMethod("QCnorm", "scR",
 setGeneric("Avg.by.ident", function(object,features.use=NULL, use.count=FALSE, ident.use=NULL, return.scaled=TRUE,fxn.x=expMean,...) standardGeneric("Avg.by.ident"))
 setMethod("Avg.by.ident", "scR", 
           function(object,features.use=NULL, use.count=FALSE, ident.use=NULL, return.scaled=TRUE,fxn.x=expMean,...) {
-
-    features.use=set.ifnull(features.use, object@var.genes)
-    features.use = ainb(features.use, rownames(object@data))
-    #features.use = ainb(features.use, colnames(object@data.info))
-    ident.use=set.ifnull(ident.use, levels(object@ident))
-    
-    ExpMat = matrix(0, nrow=length(features.use), ncol = length(ident.use))
-    rownames(ExpMat) = features.use; colnames(ExpMat) = ident.use
-    
-    if (use.count){
-      data.use = object@count.data[features.use,]
-      #vec.exp = apply(object@count.data[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
-    } else {
-      data.use = object@data[features.use,]
-      #data.use = t(object@data.info[,features.use])
-      #vec.exp = apply(object@data[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
-    }
-    data.use = as.matrix(data.use)
-    for (i in ident.use){
-      cells.in.cluster = names(object@ident)[which(object@ident== i)]
-      vec.exp = apply(data.use[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
-      ExpMat[, i] = vec.exp
-    }
-    
-    if (return.scaled){
-      ExpMat.scaled = t(scale(t(ExpMat), scale=TRUE, center=TRUE))
-      return(ExpMat.scaled)    
-    } else {
-      return(ExpMat)
-    }
-}
+            
+            features.use=set.ifnull(features.use, object@var.genes)
+            features.use = ainb(features.use, rownames(object@data))
+            #features.use = ainb(features.use, colnames(object@data.info))
+            ident.use=set.ifnull(ident.use, levels(object@ident))
+            
+            ExpMat = matrix(0, nrow=length(features.use), ncol = length(ident.use))
+            rownames(ExpMat) = features.use; colnames(ExpMat) = ident.use
+            
+            if (use.count){
+              data.use = object@count.data[features.use,]
+              #vec.exp = apply(object@count.data[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
+            } else {
+              data.use = object@data[features.use,]
+              #data.use = t(object@data.info[,features.use])
+              #vec.exp = apply(object@data[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
+            }
+            data.use = as.matrix(data.use)
+            for (i in ident.use){
+              cells.in.cluster = names(object@ident)[which(object@ident== i)]
+              vec.exp = apply(data.use[features.use, cells.in.cluster], 1, function(x) fxn.x(x)) 
+              ExpMat[, i] = vec.exp
+            }
+            
+            if (return.scaled){
+              ExpMat.scaled = t(scale(t(ExpMat), scale=TRUE, center=TRUE))
+              return(ExpMat.scaled)    
+            } else {
+              return(ExpMat)
+            }
+          }
 )
 
 
@@ -4903,12 +4902,12 @@ setMethod("PercExpDf", "scR",
             
             if (!is.null(perc.floor)){
               print(paste0("Zeroing all percentage values less than ", perc.floor, " percent." ))
-             PercMat[PercMat < perc.floor] = 0
+              PercMat[PercMat < perc.floor] = 0
             }
             
             if (!is.null(exp.floor)){ 
-                print(paste0("Zeroing all percentage values less than ", exp.floor, "." ))
-                 ExpMat[ExpMat < exp.floor] = 0
+              print(paste0("Zeroing all percentage values less than ", exp.floor, "." ))
+              ExpMat[ExpMat < exp.floor] = 0
             }
             
             df = data.frame(row.names=ident.use)
@@ -4917,10 +4916,10 @@ setMethod("PercExpDf", "scR",
               df[,paste0("Exp_",f)] = ExpMat[f,]
               df[,paste0("Perc_",f)] = PercMat[f,]
             }
-
             
-          return(df)  
-          
+            
+            return(df)  
+            
           }
 )
 
@@ -5026,7 +5025,7 @@ setMethod("clust.composition", "scR",
                 PercVal$sample = factor(PercVal$sample, levels= sample.use)
                 p=ggplot(PercVal, aes(y = factor(sample),  x = factor(cluster))) + geom_point(aes(size=perc_sample))
               }
-             
+              
             } else{
               PercVal = melt(counts)
               colnames(PercVal) = c("sample","cluster","counts")
@@ -5034,8 +5033,8 @@ setMethod("clust.composition", "scR",
               PercVal$sample = factor(PercVal$sample, levels= sample.use)
               p=ggplot(PercVal, aes(y = factor(sample),  x = factor(cluster))) + geom_point(aes(size=counts))
             }
-              
-
+            
+            
             
             p= p+scale_size(range = c(0, max.size))+   theme_bw() +
               xlab("Cluster") + ylab("Sample") + 
@@ -5054,8 +5053,8 @@ setMethod("clust.composition", "scR",
             p2 <- ggplot_gtable(ggplot_build(p2))
             p2$widths <- p$widths
             grid.arrange(p2,p, ncol=1, heights=c(1.5,3))
-              
-          
+            
+            
           }
 )
 
@@ -5078,7 +5077,7 @@ setMethod("gene.set.score", "scR",
               }
             }
             
-
+            
             
             if (use.scaled){
               data.use = object@scale.data
@@ -5088,11 +5087,11 @@ setMethod("gene.set.score", "scR",
             
             percpos=Perc.pos.by.ident(object, features.use=genes.use, do.plot=FALSE)
             if (!is.null(dim(percpos$PercMat))){
-                #genes.use = genes.use[apply(percpos$PercMat,1, function(x) mean(x) >= min.perc & mean(x) <= max.perc)]
-                genes.use = genes.use[apply(percpos$PercMat,1, function(x) max(x) >= min.perc)]
+              #genes.use = genes.use[apply(percpos$PercMat,1, function(x) mean(x) >= min.perc & mean(x) <= max.perc)]
+              genes.use = genes.use[apply(percpos$PercMat,1, function(x) max(x) >= min.perc)]
             } else {
-                #genes.use = genes.use[percpos$PercMat >= min.perc & percpos$PercMat <= max.perc]
-                genes.use = genes.use[percpos$PercMat >= min.perc]
+              #genes.use = genes.use[percpos$PercMat >= min.perc & percpos$PercMat <= max.perc]
+              genes.use = genes.use[percpos$PercMat >= min.perc]
             }
             print(paste0("Removing genes that are expressed in less than ", 100*min.perc, " % of cells per cluster"))
             print(paste0("Final signature consists of ", length(genes.use), " genes"))
@@ -5100,8 +5099,8 @@ setMethod("gene.set.score", "scR",
             
             scores=NULL
             if (length(genes.use) > 0 & !scale.by.perc){
-            data.use1 = data.use[genes.use,];
-            scores = Matrix::colMeans(data.use1) - Matrix::colMeans(data.use)
+              data.use1 = data.use[genes.use,];
+              scores = Matrix::colMeans(data.use1) - Matrix::colMeans(data.use)
             }
             
             if (length(genes.use) > 0 & scale.by.perc){
@@ -5117,9 +5116,9 @@ setMethod("gene.set.score", "scR",
               object@data.info[, score.name] = scores
               return(object)
             }
-              
-            }
-  )
+            
+          }
+)
 
 
 setGeneric("signature.spatial", function(object,genesets.list=NULL, use.weights=FALSE, reduction.use="tsne",verbose=FALSE, alpha=0.33, min.perc=0.3, min.genes=5, random.genesets.size=c(5,10,20,50,100,200),n.random = 1000,...) standardGeneric("signature.spatial"))
@@ -5137,22 +5136,22 @@ setMethod("signature.spatial", "scR",
             index=1
             for (size in random.genesets.size){
               consis.temp = c()
-               print(paste0("Evaluating random gene sets of size ", size))
-                for (iter in c(1:n.random)){
-                    genes.rand = sample(rownames(object@scale.data), size)
-                    
-                    score = gene.set.score(object, genes.use=genes.rand, use.scaled=TRUE, score.name="Rand", use.weights=use.weights, return.score=TRUE, verbose=verbose)
-                    
-                    #Expected score 
-                    exp_score = (K %*% score) / rowSums(K)
-                    
-                    #consistency
-                    consis.temp = c(consis.temp,median(abs(score-exp_score)))
-                }
+              print(paste0("Evaluating random gene sets of size ", size))
+              for (iter in c(1:n.random)){
+                genes.rand = sample(rownames(object@scale.data), size)
+                
+                score = gene.set.score(object, genes.use=genes.rand, use.scaled=TRUE, score.name="Rand", use.weights=use.weights, return.score=TRUE, verbose=verbose)
+                
+                #Expected score 
+                exp_score = (K %*% score) / rowSums(K)
+                
+                #consistency
+                consis.temp = c(consis.temp,median(abs(score-exp_score)))
+              }
               rand.dist[index, "mean"] = mean(consis.temp)
               rand.dist[index,"sigma"] = sd(consis.temp)
               index=index+1;
-
+              
             }
             
             l=0
@@ -5184,7 +5183,7 @@ setMethod("signature.spatial", "scR",
                 
                 #Expected score 
                 exp_score = K %*% score / rowSums(K)
-              
+                
                 #consistency
                 consis = median(abs(score-exp_score))
                 
@@ -5205,18 +5204,18 @@ setMethod("signature.spatial", "scR",
 )
 
 name.shorten = function(name){
-    name = gsub("DIFFERENTIATION","DIFF",name)  
-    name = gsub("NEGATIVE","NEG",name)
-    name = gsub("POSITIVE","POS",name)
-    name = gsub("PROCESS","PROC",name)
-    name = gsub("REGULATION","REG",name)
-    name = gsub("STRUCTURAL","STRUC",name)
-    name = gsub("STRUCTURE","STRUC",name)
-    name = gsub("ACTIVITY","ACT",name)
-    name = gsub("ACTIVATION","ACT",name)
-    name = gsub("DEVELOPMENT","DEV",name)
-    name = gsub("TRANSMEMBRANE","TRANSMEM",name)
-    name =  str_replace_all(name,"[^[:alnum:]]", " ")
+  name = gsub("DIFFERENTIATION","DIFF",name)  
+  name = gsub("NEGATIVE","NEG",name)
+  name = gsub("POSITIVE","POS",name)
+  name = gsub("PROCESS","PROC",name)
+  name = gsub("REGULATION","REG",name)
+  name = gsub("STRUCTURAL","STRUC",name)
+  name = gsub("STRUCTURE","STRUC",name)
+  name = gsub("ACTIVITY","ACT",name)
+  name = gsub("ACTIVATION","ACT",name)
+  name = gsub("DEVELOPMENT","DEV",name)
+  name = gsub("TRANSMEMBRANE","TRANSMEM",name)
+  name =  str_replace_all(name,"[^[:alnum:]]", " ")
 }
 
 setGeneric("reduction.space", function(object,reduction.use="tsne",pc.1=1,pc.2=2,do.scale=TRUE,...) standardGeneric("reduction.space"))
@@ -5255,7 +5254,7 @@ setMethod("doBatchCorrection","scR",
             if (set.data) object@data[genes.use,] = as.data.frame(correct.data[genes.use,])
             if (set.scale.data) object@scale.data[genes.use,] = t(scale(t(correct.data), center=TRUE, scale=TRUE))
             if (set.data | set.scale.data){
-               return(object)
+              return(object)
             } else {
               print("Returning unscaled batch corrected matrix")
               return(correct.data)
@@ -5364,8 +5363,8 @@ setMethod("RegressOut", "scR",
             }
             bin.size <- 100;
             if (model.use=="negbinom") bin.size=5;
-
-
+            
+            
             if (!is.null(exclude.genes.prior)){
               exclude.genes.prior = ainb(exclude.genes.prior, rownames(object@data))
               print(paste0("Re-doing the normalization by excluding ", length(exclude.genes.prior), " genes"))
@@ -5497,7 +5496,7 @@ setMethod("RegressOut", "scR",
                 object@data = Matrix(log(TPM.mat+1), sparse=TRUE)
               }
             }
-           
+            
             return(object)
           }
 )
@@ -5573,48 +5572,48 @@ FindClustersToSubCluster = function(object,
                                     min.cells.for.var.genes = 200,
                                     cells.tsne = 400,
                                     cluster.test = NULL){
-      require(diptest)
-      # Find clusters that possibly have subclusters
-      clust_to_subcluster = c()
-      if (is.null(cluster.test)) cluster.test = levels(object@ident)
-      for (clust in cluster.test){
-        
-        print(paste0("Testing cluster ", clust))
-        cells.all.clust = which.cells(object,clust)
-        if (length(cells.all.clust) < min.cells.no.cluster) next
-        cells.clust = sample(cells.all.clust, min(cells.tsne, length(cells.all.clust))) # use a small number of cells to test on tSNE map
-        
-        if (length(cells.clust) > min.cells.for.var.genes){ 
-          # PCA on the tSNE plot
-          ydata = as.matrix(object@tsne.rot[cells.clust,])
-          pca_obj = prcomp(ydata)
-          a_tsne=dip.test(pca_obj$x[,1])
-          tsne_pvalue = a_tsne$p.value
-          # PCA on its own (use all cells)
-          clust.obj = subsetData(object, cells.use = cells.all.clust)
-          sink("/dev/null")
-          clust.obj@var.genes = NB.var.genes(clust.obj, set.var.genes = FALSE, num.sd = 1, x.high.cutoff = 12, do.idents = TRUE, x.low.cutoff = 50/length(clust.obj@cell.names), rem.mt.rp = TRUE)
-          clust.obj <- RegressOut(clust.obj,latent.vars = c( "batch", "nTranscripts","mt.score","rp.score"), genes.regress = clust.obj@var.genes, set.regress.data = TRUE) 
-          clust.obj = pca2(clust.obj,pcs.store = 10,pcs.print = 5,genes.print = 5, maxit=300)
-          sink()
-          pca_pvalue = c()
-          for (pc in c(1:10)){
-            pca_pvalue = c(pca_pvalue, dip.test(clust.obj@pca.rot[,pc])$p.value)
-          }
-          
-          pca_pvalue = min(pca_pvalue)
-        } else {
-          pca_pvalue=1
-        }
-        if (tsne_pvalue < 1e-2 | pca_pvalue < 1e-2){
-          print(paste0("Cluster ", clust, " may possibly have substructure. tSNE pval < ", tsne_pvalue, " and PCA pval < ", pca_pvalue))
-          clust_to_subcluster = c(clust_to_subcluster, clust)
-          
-        }
+  require(diptest)
+  # Find clusters that possibly have subclusters
+  clust_to_subcluster = c()
+  if (is.null(cluster.test)) cluster.test = levels(object@ident)
+  for (clust in cluster.test){
+    
+    print(paste0("Testing cluster ", clust))
+    cells.all.clust = which.cells(object,clust)
+    if (length(cells.all.clust) < min.cells.no.cluster) next
+    cells.clust = sample(cells.all.clust, min(cells.tsne, length(cells.all.clust))) # use a small number of cells to test on tSNE map
+    
+    if (length(cells.clust) > min.cells.for.var.genes){ 
+      # PCA on the tSNE plot
+      ydata = as.matrix(object@tsne.rot[cells.clust,])
+      pca_obj = prcomp(ydata)
+      a_tsne=dip.test(pca_obj$x[,1])
+      tsne_pvalue = a_tsne$p.value
+      # PCA on its own (use all cells)
+      clust.obj = subsetData(object, cells.use = cells.all.clust)
+      sink("/dev/null")
+      clust.obj@var.genes = NB.var.genes(clust.obj, set.var.genes = FALSE, num.sd = 1, x.high.cutoff = 12, do.idents = TRUE, x.low.cutoff = 50/length(clust.obj@cell.names), rem.mt.rp = TRUE)
+      clust.obj <- RegressOut(clust.obj,latent.vars = c( "batch", "nTranscripts","mt.score","rp.score"), genes.regress = clust.obj@var.genes, set.regress.data = TRUE) 
+      clust.obj = pca2(clust.obj,pcs.store = 10,pcs.print = 5,genes.print = 5, maxit=300)
+      sink()
+      pca_pvalue = c()
+      for (pc in c(1:10)){
+        pca_pvalue = c(pca_pvalue, dip.test(clust.obj@pca.rot[,pc])$p.value)
       }
       
-      return(clust_to_subcluster)
-
+      pca_pvalue = min(pca_pvalue)
+    } else {
+      pca_pvalue=1
+    }
+    if (tsne_pvalue < 1e-2 | pca_pvalue < 1e-2){
+      print(paste0("Cluster ", clust, " may possibly have substructure. tSNE pval < ", tsne_pvalue, " and PCA pval < ", pca_pvalue))
+      clust_to_subcluster = c(clust_to_subcluster, clust)
+      
+    }
+  }
+  
+  return(clust_to_subcluster)
+  
 }
 
 
@@ -5723,7 +5722,7 @@ FindSubClusters = function(object,
     
     
     if (n_K <= 2) next
-   
+    
     do.jaccard = FALSE
     if (cluster.method == "Louvain") do.jaccard = TRUE
     clust.obj = doGraph_clustering(clust.obj, pcs.use = 1:max(n_K,2), num.nn=round(log2(length(clust.obj@cell.names)*2)), method=cluster.method, do.jaccard = do.jaccard)
@@ -5763,8 +5762,8 @@ Ligerize = function(object,batch_id="batch", var.genes = NULL,  do.clustering=TR
   library(liger)
   object = set.all.ident(object, id=batch_id)
   if (is.null(var.genes)){
-      var.genes_each_no_mt = NB.var.genes(object, set.var.genes = FALSE, num.sd = 1, x.high.cutoff = 3, do.idents = TRUE, x.low.cutoff = 0.005, rem.mt.rp = TRUE, do.text = FALSE, ...)
-      object@var.genes = var.genes_each_no_mt
+    var.genes_each_no_mt = NB.var.genes(object, set.var.genes = FALSE, num.sd = 1, x.high.cutoff = 3, do.idents = TRUE, x.low.cutoff = 0.005, rem.mt.rp = TRUE, do.text = FALSE, ...)
+    object@var.genes = var.genes_each_no_mt
     
   } else {
     object@var.genes = var.genes
@@ -5790,19 +5789,19 @@ Ligerize = function(object,batch_id="batch", var.genes = NULL,  do.clustering=TR
   analogy <- liger::selectGenes(analogy)
   if(!is.null(var.genes)){
     analogy@var.genes = intersect(analogy@var.genes, var.genes)
-   }
+  }
   analogy = liger::scaleNotCenter(analogy)
   analogy = optimizeALS(analogy,k=n_K+3) 
   analogy = quantileAlignSNF(analogy) #SNF clustering and quantile alignment
   object@var.genes = analogy@var.genes
- 
+  
   analogy = runTSNE(analogy, dims.use = 1:n_K)
   orig_tsne = object@tsne.rot
   object@tsne.rot[,1] = analogy@tsne.coords[object@cell.names,1]
   object@tsne.rot[,2] = analogy@tsne.coords[object@cell.names,2]
-    object@dr$tsne@cell.embeddings[,1] = analogy@tsne.coords[object@cell.names,1]
-    object@dr$tsne@cell.embeddings[,2] = analogy@tsne.coords[object@cell.names,2]
-    object@dr$tsne@key = "tsne"
+  object@dr$tsne@cell.embeddings[,1] = analogy@tsne.coords[object@cell.names,1]
+  object@dr$tsne@cell.embeddings[,2] = analogy@tsne.coords[object@cell.names,2]
+  object@dr$tsne@key = "tsne"
   
   if (do.umap){  
     analogy = runUMAP(analogy, dims.use = 1:n_K)
