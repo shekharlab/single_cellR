@@ -320,6 +320,7 @@ NormalizeData <- function(
        rm(data)
     }
     
+  }
   
   # if (normalization.method == "genesCLR") {
   #   raw.data <- GetAssayData(
