@@ -307,12 +307,18 @@ NormalizeData <- function(
       num.trans = Matrix::colSums(data)
     }
     
-    #normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
-    #normalized.data <- Matrix(normalized.data, sparse=TRUE)
-    #rm(data)
-    if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
-    #normalized.data <- Matrix(log(normalized.data + pseudocount.use), sparse=TRUE)
-    normalized.data <- LogNorm
+     if (pseudocount.use != 1){
+      normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
+      normalized.data <- Matrix(normalized.data, sparse=TRUE)
+      rm(data)
+      if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
+      normalized.data <- Matrix(log(normalized.data + pseudocount.use), sparse=TRUE)
+      
+    } else {
+      if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
+      normalized.data = LogNorm(data, scale_factor = scale.factor)
+    }
+    
   
   # if (normalization.method == "genesCLR") {
   #   raw.data <- GetAssayData(
