@@ -49,6 +49,7 @@ require(gridExtra)
 #require(randomForest)
 require(Matrix)
 library(Rcpp)
+library(RcppProgress)
 library(pracma)
 library(RcppAnnoy)
 library(RSpectra)
@@ -77,6 +78,8 @@ library(irlba)
 # require(rfFC)
 
 #' scR class object
+
+sourceCpp(paste0(dirpath, "src/Rcpp_exports.cpp"))
 
 scR <- methods::setClass("scR", 
                          slots = c(
@@ -304,18 +307,13 @@ NormalizeData <- function(
       num.trans = Matrix::colSums(data)
     }
     
-    normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
-    normalized.data <- Matrix(normalized.data, sparse=TRUE)
-    rm(data)
+    #normalized.data <-   scaleMargins(data, cols = scale.factor/num.trans)
+    #normalized.data <- Matrix(normalized.data, sparse=TRUE)
+    #rm(data)
     if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
-    normalized.data <- Matrix(log(normalized.data + pseudocount.use), sparse=TRUE)
-    #non_zero <- which(normalized.data > 0)
-    #normalized.data[non_zero] <- log(normalized.data[non_zero] + pseudocount.use)
-    #if (pseudocount.use != 1){
-    #  actual_zero <- which(normalized.data == 0)
-    #  normalized.data[actual_zero] <- log(normalized.data[actual_zero] + pseudocount.use)
-    #}
-  }
+    #normalized.data <- Matrix(log(normalized.data + pseudocount.use), sparse=TRUE)
+    normalized.data <- LogNorm
+  
   # if (normalization.method == "genesCLR") {
   #   raw.data <- GetAssayData(
   #     object = object,
