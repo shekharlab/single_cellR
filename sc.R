@@ -317,6 +317,7 @@ NormalizeData <- function(
     } else {
       if (verbose) print(paste0("Log-transforming TPM values after adding ", pseudocount.use))
       normalized.data = LogNorm(data, scale_factor = scale.factor)
+       rm(data)
     }
     
   
