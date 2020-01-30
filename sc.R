@@ -6,7 +6,7 @@
 #"XLConnect"
 
 #source("https://bioconductor.org/biocLite.R")
-#biocLite(c("preprocessCore","Biostrings","GraphAlignment","MAST","tweeDEseq"))
+#biocLite(c("preprocessCore","Biostrings","GraphAlignment","MAST","tweeDEseq","DAPAR"))
 # sourcefiles
 source(paste0(dirpath, "UpdateObject.R"))
 #source("./UpdateObject.R")
@@ -63,6 +63,7 @@ library(shape)
 library(cowplot)
 #library(MASS)
 library(irlba)
+library(DAPAR)
 
 #library(rgl)
 #require(networkD3)
@@ -213,14 +214,18 @@ setup <- function(
   if (!is.null(threshold.use) | !is.null(threshold.quantile)){
     if (!is.null(threshold.use)){
       if (verbose) print(paste0("Thresholding all normalized values to ", threshold.use))
-      valsToChange = Matrix::which(object@data > threshold.use)
-      object@data[valsToChange] = threshold.use
+      #valsToChange = Matrix::which(object@data > threshold.use)
+      indToChange = DAPAR::nonzero(object@data)
+      valsToChange = object@data[indToChange]
+      valsToChange[valsToChange > threshold.use] = threshold.use
+      object@data[indToChange] = valsToChange
     } else {
-      pos.vals = object@data[object@data > 0]
-      threshold.use = quantile(pos.vals, threshold.quantile)
+      indToChange = DAPAR::nonzero(object@data)
+      valsToChange = object@data[indToChange]
+      threshold.use = quantile(valsToChange, threshold.quantile)
       if (verbose) print(paste0("Thresholding all normalized values to ", 100*threshold.quantile, " percentile of the expressed vals =", threshold.use))
-      valsToChange = Matrix::which(object@data > threshold.use)
-      object@data[valsToChange] = threshold.use
+      valsToChange[valsToChange > threshold.use] = threshold.use
+      object@data[indToChange] = valsToChange
     }
   }
   
